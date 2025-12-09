@@ -5,9 +5,6 @@
 // Released under the MIT license
 // https://github.com/oakmac/chessboardjs/blob/master/LICENSE.md
 
-// Temporary test line
-console.log("test");
-
 // start anonymous scope
 ;(function () {
   'use strict'
@@ -580,8 +577,6 @@ console.log("test");
     if (!config.hasOwnProperty('pieceTheme') ||
         (!isString(config.pieceTheme) && !isFunction(config.pieceTheme))) {
       config.pieceTheme = './img/chesspieces/{piece}.png'
-      // Temporary test line
-      console.log("Image loaded");
     }
 
     // animation speeds
