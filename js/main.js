@@ -5,6 +5,32 @@
  Date:      December 9, 2025
  */
 
-// Initialize the chessboard (div with id 'myBoard') with the starting position
- var board = Chessboard('myBoard', 'start');
+// Establish the logic and rules of the chess game
+var game = new Chess();
+
+// Allow piece drop interactions between chess pieces and squares
+function onDrop (source, target) {
+    // Check if the move is legal 
+    var move = game.move({
+      from: source,
+      to: target,
+      // Queen promotion as default
+      promotion: 'q' 
+    });
+
+    // If the move is illegal, return the piece to its original square
+    if (move == null) {
+        return 'snapback';
+    }
+}
+
+// Create configurations for the chessboard before it is created
+var config = {
+  draggable: true,
+  position: 'start',
+  onDrop: onDrop
+};
+
+// Initialize the chessboard (div with id 'myBoard') 
+ var board = Chessboard('myBoard', config);
  
