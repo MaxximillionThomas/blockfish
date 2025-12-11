@@ -8,6 +8,13 @@
 // Establish the logic and rules of the chess game
 var game = new Chess();
 
+// Prevent interactions once the game is over
+function onDragStart (source, piece) {
+    if (game.game_over()){
+        return false;
+    }
+}
+
 // Allow piece drop interactions between chess pieces and squares
 function onDrop (source, target) {
     // Check if the move is legal 
@@ -65,6 +72,7 @@ function onSnapEnd () {
 var config = {
   draggable: true,
   position: 'start',
+  onDragStart: onDragStart,
   onDrop: onDrop,
   onSnapEnd: onSnapEnd
 };
