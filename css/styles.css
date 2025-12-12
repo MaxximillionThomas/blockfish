@@ -8,12 +8,13 @@
 /* =============================
 // ==  Menu  ===================
 // ============================= */
+
 #menuOptions {
     margin-bottom: 20px;
 }
 
 /* =============================
-// ==  Game  ===========
+// ==  Status & board  ===========
 // ============================= */
 
 #gameContainer {
@@ -27,13 +28,50 @@
     font-weight: bold;
 }
 
-/* #myBoard {
-    width: 100%;
-} */
+/* =============================
+// ==  Move history  ===========
+// ============================= */
 
+/* Parent move history element - updates with the subsequent styles through js */
 #pgn {
     margin-top: 40px;
     margin-bottom: 40px;
+    height: 150px; 
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+}
+
+/* Table structure */
+.move-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: monospace; 
+}
+
+/* Table headers */
+.move-table th {
+    background-color: #e0e0e0;
+    position: sticky;
+    top: 0;
+    padding: 5px;
+    border-bottom: 1px solid #999;
+    font-size: 14px;
+}
+
+/* Table cells */
+.move-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+/* Zebra striping for readability */
+.move-table tr:nth-child(even) {
+    background-color: #fff;
+}
+.move-table tr:nth-child(odd) {
+    background-color: #f2f2f2;
 }
 
 /* =============================

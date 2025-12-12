@@ -164,13 +164,13 @@ function updateStatus() {
         if (game.in_check()) {
             status += ' ' + moveColor + ' is in check.';
         }
-  }
+    }
 
-  // Update the status div
-  $('#status').html(status);
+    // Update the status div
+    $('#status').html(status);
 
-  // Update the move history div
-  $('#pgn').html(game.pgn());
+    // Update the move history div
+    updateMoveHistory();
 }
 
 // Force the board to accurately reflect the game state
@@ -197,7 +197,7 @@ updateStatus();
 // ==  UI controls  ============
 // =============================
 
-// ========== Start new game ==========
+// ==========  Start new game  ==========
 // Reset the game to the starting position
 function startNewGame() {
     // Clear any existing delayed moves
@@ -218,7 +218,7 @@ function startNewGame() {
 var resetButton = document.getElementById('startBtn');
 resetButton.addEventListener('click', startNewGame);
 
-// ========== Game over  ==========
+// ==========  Game over  ==========
 // Modal Elements
 var modal = document.getElementById("gameOverModal");
 var modalText = document.getElementById("gameResult");
@@ -243,6 +243,49 @@ function gameOverModalReset() {
 
 // When the user clicks the button, reset the game and hide the modal
 modalBtn.addEventListener('click', gameOverModalReset);
+
+// ==========  Move history  ==========
+function updateMoveHistory() {
+    // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
+    var history = game.history();
+    
+    // Create an HTML table for storing move history
+    var html = '<table class="move-table">';
+    html += '<thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>';
+    html += '<tbody>';
+
+    // Iterate through moves in pairs (1. white, 2. black)
+    for (var i = 0; i < history.length; i += 2) {
+        var moveNumber = (i / 2) + 1;
+
+        // White move is the first in the pair
+        var whiteMove = history[i];
+
+        // Black move is the second in the pair
+        if (history[i + 1]) {
+            blackMove = history[i + 1];
+        // Handle pending black move
+        } else {
+            blackMove = '';
+        }
+
+        html += '<tr>';
+        html += '<td>' + moveNumber + '.</td>';
+        html += '<td>' + whiteMove + '</td>';
+        html += '<td>' + blackMove + '</td>';
+        html += '</tr>';
+    }
+
+    // Close the table after all moves are added
+    html += '</tbody></table>';
+
+    // Update the HTML element with the generated table
+    var pgnElement = document.getElementById('pgn');
+    pgnElement.innerHTML = html;
+    
+    // Auto-scroll the move history to the latest move
+    pgnElement.scrollTop = pgnElement.scrollHeight;
+}
 
 
 
