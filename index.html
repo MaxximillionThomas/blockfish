@@ -16,14 +16,17 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="./css/chessboard-1.0.0.css">
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
 
 <!-- Body -->
+
 <body>
     <h1>You vs Stockfish</h1>
 
-    <!-- Bot difficulty drop-down selection -->
-    <div id="difficultySelection">
+    <!-- Menu options -->
+    <div id="menuOptions">
+        <!-- Bot difficulty drop-down selection -->
         <label for="difficulty">Select Bot Difficulty: </label>
         <select id="difficulty" onchange="setEngineDifficulty(this.value)">
             <option value="0" selected>Easiest</option>
@@ -32,6 +35,9 @@
             <option value="14">Hard</option>
             <option value="20">Impossible</option>
         </select>
+
+        <!-- Start new game button -->
+        <button id="resetBtn">Start New Game</button>
     </div>
 
     <!-- Turn status (your move / bot move) -->
@@ -43,6 +49,15 @@
     <!-- Move history -->
     <div id="pgn"></div>
 
+    <!-- Game over pop-up -->
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2 id="gameResult">Game Over</h2>
+            <p id="gameReason">Checkmate</p>
+            <button id="modalNewGameBtn">New Game</button>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="./js/chessboard-1.0.0.js"></script>
@@ -50,4 +65,5 @@
     <script src="./js/main.js"></script>
 
 </body>
+
 </html>

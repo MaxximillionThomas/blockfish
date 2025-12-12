@@ -5,22 +5,32 @@
  Date:      December 9, 2025
  */
 
-//==========  Logic  ==========
+// =============================
+// ==  Logic  ==================
+// =============================
+
 // Establish the logic and rules of the chess game
 var game = new Chess();
 
-//==========  Engine  ==========
+// =============================
+// ==  Engine  =================
+// =============================
+
 // Initialize the Stockfish chess engine
 var engine = new Worker('js/stockfish.js');
 
-// The engine has different difficulty levels (0-20), start at the easiest
+// Engine timeout will be later used for resetting the engine
+var engineTimeout = null;
+
+/* 
+    Configure engine starting settings 
+    The engine has different difficulty levels (0-20), start at the easiest
+    Search depth determines how many moves ahead the engine will consider
+*/
 var difficulty = 0;
 var searchDepth = 1;
 engine.postMessage('uci'); 
 engine.postMessage('setoption name Skill Level value ' + difficulty); 
-
-// Debugging output
-console.log('Engine difficulty starting at ' + difficulty + ' with search depth ' + searchDepth);
 
 // Allow setting of engine difficulty
 function setEngineDifficulty(newDifficulty) {    
@@ -43,9 +53,6 @@ function setEngineDifficulty(newDifficulty) {
     } else {
         searchDepth = 10;      
     }
-
-    // Debugging output
-    console.log('Engine difficulty set to ' + difficulty + ' with search depth ' + searchDepth);
 }
 
 // Set up responses from the engine
@@ -88,7 +95,10 @@ function makeEngineMove() {
     engine.postMessage('go depth ' + searchDepth);
 }
 
-//==========  Player  ==========
+// =============================
+// ==  Player  =================
+// =============================
+
 // Prevent interactions once the game is over or during the opponents turn
 function onDragStart (source, piece) {
     // Game over
@@ -120,31 +130,40 @@ function onDrop (source, target) {
     // Update the turn status text
     updateStatus();
 
-    // Allow a moment before the engine makes its move
+    // Make the engine move after a short delay
     window.setTimeout(makeEngineMove, 250);
 }
 
-//==========  Game  ==========
+// =============================
+// ==  Game  ===================
+// =============================
+
 // Update the game status text
 function updateStatus() {
-  var status = '';
+    var status = '';
 
-  // Determine whose turn it is
-  var moveColor = 'White';
-  if (game.turn() === 'b') {
-      moveColor = 'Black';
-  }
+    // Determine whose turn it is
+    var moveColor = 'White';
+    if (game.turn() === 'b') {
+        moveColor = 'Black';
+    }
 
-  // Check if a player has legal moves left
-  if (game.in_checkmate()) {
-      status = 'Game over. ' + moveColor + ' has been checkmated.';
-  } else if (game.in_draw()) {
-      status = 'Game over, the position is a draw.';
-  } else {
-      status = moveColor + ' to move.';
-      if (game.in_check()) {
-          status += ' ' + moveColor + ' is in check.';
-      }
+    // Checkmate
+    if (game.in_checkmate()) {
+        status = 'Game over. ' + moveColor + ' has been checkmated.';
+        showGameOverModal(moveColor === 'Black' ? 'You Win!' : 'You Lost', 'Checkmate');
+
+    // Draw
+    } else if (game.in_draw()) {
+        status = 'Game over, the position is a draw.';
+        showGameOverModal('Draw', 'Stalemate / Repetition');
+
+    // Ongoing game
+    } else {
+        status = moveColor + ' to move.';
+        if (game.in_check()) {
+            status += ' ' + moveColor + ' is in check.';
+        }
   }
 
   // Update the status div
@@ -173,6 +192,56 @@ var config = {
 
  // Update the board status on game start
 updateStatus();
+
+// =============================
+// ==  UI controls  ============
+// =============================
+
+// ========== Reset game ==========
+// Reset the game to the starting position
+function resetGame() {
+    // Clear any existing delayed moves
+    window.clearTimeout(engineTimeout);
+    // Reset the game logic
+    game.reset();
+    // Reset the board position
+    board.start();
+    // Update the status text
+    updateStatus();
+    // Clear the engine's memory
+    engine.postMessage('ucinewgame');
+}
+
+// Bind the reset function to the reset button
+var resetButton = document.getElementById('resetBtn');
+resetButton.addEventListener('click', resetGame);
+
+// ========== Game over  ==========
+// Modal Elements
+var modal = document.getElementById("gameOverModal");
+var modalText = document.getElementById("gameResult");
+var modalReason = document.getElementById("gameReason");
+var modalBtn = document.getElementById("modalNewGameBtn");
+
+// Show the game over modal with the result  and reason 
+function showGameOverModal(result, reason) {
+    // win/loss/draw
+    modalText.innerText = result;
+    // checkmate/stalemate/repetition
+    modalReason.innerText = reason;
+
+    // Make the modal visible
+    modal.style.display = "flex";
+}
+
+function gameOverModalReset() {
+    modal.style.display = "none";
+    resetGame();
+}
+
+// When the user clicks the button, reset the game and hide the modal
+modalBtn.addEventListener('click', gameOverModalReset);
+
 
 
 
