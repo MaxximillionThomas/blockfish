@@ -13,6 +13,41 @@ var game = new Chess();
 // Initialize the Stockfish chess engine
 var engine = new Worker('js/stockfish.js');
 
+// The engine has different difficulty levels (0-20), start at the easiest
+var difficulty = 0;
+var searchDepth = 1;
+engine.postMessage('uci'); 
+engine.postMessage('setoption name Skill Level value ' + difficulty); 
+
+// Debugging output
+console.log('Engine difficulty starting at ' + difficulty + ' with search depth ' + searchDepth);
+
+// Allow setting of engine difficulty
+function setEngineDifficulty(newDifficulty) {    
+
+    // Set the difficulty
+    difficulty = newDifficulty;
+    engine.postMessage('setoption name Skill Level value ' + difficulty)
+
+    // Set the search depth level in accordance with difficulty
+    // Easiest + Easy
+    if (difficulty < 5) {
+        searchDepth = 1;
+    // Medium
+    } else if (difficulty < 10) {
+        searchDepth = 3;       
+    // Hard
+    } else if (difficulty < 15) {
+        searchDepth = 7;  
+    // Impossible
+    } else {
+        searchDepth = 10;      
+    }
+
+    // Debugging output
+    console.log('Engine difficulty set to ' + difficulty + ' with search depth ' + searchDepth);
+}
+
 // Set up responses from the engine
 engine.onmessage = function(event) {
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
@@ -49,8 +84,8 @@ function makeEngineMove() {
     }
     // Send the current game position to the engine
     engine.postMessage('position fen ' + game.fen());
-    // Allow 10 moves of depth to the engine
-    engine.postMessage('go depth 10');
+    // Search for the best move to a certain depth
+    engine.postMessage('go depth ' + searchDepth);
 }
 
 //==========  Player  ==========
@@ -138,4 +173,7 @@ var config = {
 
  // Update the board status on game start
 updateStatus();
+
+
+
  

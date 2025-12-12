@@ -22,6 +22,18 @@
 <body>
     <h1>You vs Stockfish</h1>
 
+    <!-- Bot difficulty drop-down selection -->
+    <div id="difficultySelection">
+        <label for="difficulty">Select Bot Difficulty: </label>
+        <select id="difficulty" onchange="setEngineDifficulty(this.value)">
+            <option value="0" selected>Easiest</option>
+            <option value="3">Easy</option>
+            <option value="7">Medium</option>
+            <option value="14">Hard</option>
+            <option value="20">Impossible</option>
+        </select>
+    </div>
+
     <!-- Turn status (your move / bot move) -->
     <div id="status">Turn: Loading...</div>
 
@@ -37,8 +49,5 @@
     <script src="./js/chess-rules.js"></script>
     <script src="./js/main.js"></script>
 
-
-
 </body>
-
 </html>
