@@ -6,6 +6,37 @@
  */
 
 /* =============================
+// ==  Menu  ===================
+// ============================= */
+#menuOptions {
+    margin-bottom: 20px;
+}
+
+/* =============================
+// ==  Game  ===========
+// ============================= */
+
+#gameContainer {
+    width: 400px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+#status {
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+/* #myBoard {
+    width: 100%;
+} */
+
+#pgn {
+    margin-top: 40px;
+    margin-bottom: 40px;
+}
+
+/* =============================
 // ==  Game over  ==============
 // ============================= */
 

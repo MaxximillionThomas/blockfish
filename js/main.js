@@ -197,9 +197,9 @@ updateStatus();
 // ==  UI controls  ============
 // =============================
 
-// ========== Reset game ==========
+// ========== Start new game ==========
 // Reset the game to the starting position
-function resetGame() {
+function startNewGame() {
     // Clear any existing delayed moves
     window.clearTimeout(engineTimeout);
     // Reset the game logic
@@ -210,11 +210,13 @@ function resetGame() {
     updateStatus();
     // Clear the engine's memory
     engine.postMessage('ucinewgame');
+    // Focus the center of the board
+    document.getElementById('myBoard').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // Bind the reset function to the reset button
-var resetButton = document.getElementById('resetBtn');
-resetButton.addEventListener('click', resetGame);
+var resetButton = document.getElementById('startBtn');
+resetButton.addEventListener('click', startNewGame);
 
 // ========== Game over  ==========
 // Modal Elements
@@ -236,7 +238,7 @@ function showGameOverModal(result, reason) {
 
 function gameOverModalReset() {
     modal.style.display = "none";
-    resetGame();
+    startNewGame();
 }
 
 // When the user clicks the button, reset the game and hide the modal

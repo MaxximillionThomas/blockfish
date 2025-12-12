@@ -37,17 +37,20 @@
         </select>
 
         <!-- Start new game button -->
-        <button id="resetBtn">Start New Game</button>
+        <button id="startBtn">Start New Game</button>
     </div>
 
-    <!-- Turn status (your move / bot move) -->
-    <div id="status">Turn: Loading...</div>
+    <!-- Game container -->
+    <div id="gameContainer">
+        <!-- Turn status (your move / bot move) -->
+        <div id="status">Turn: Loading...</div>
 
-    <!-- Chess board-->
-    <div id="myBoard" style="width: 400px"></div>
+        <!-- Chess board-->
+        <div id="myBoard"></div>
 
-    <!-- Move history -->
-    <div id="pgn"></div>
+        <!-- Move history -->
+        <div id="pgn"></div>
+    </div>
 
     <!-- Game over pop-up -->
     <div id="gameOverModal" class="modal">
