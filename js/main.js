@@ -146,6 +146,7 @@ function onDrop (source, target) {
 // ==  Game  ===================
 // =============================
 
+// ==========  Functions  ==========
 // Toggle on/off game controls based on game state
 function toggleGameControls(isPlayable) {
     // Difficulty drop-down
@@ -215,85 +216,7 @@ function onSnapEnd () {
     board.position(game.fen());
 }
 
-// Create configurations for the chessboard before it is created
-var config = {
-  draggable: true,
-  position: 'start',
-  onDragStart: onDragStart,
-  onDrop: onDrop,
-  onSnapEnd: onSnapEnd
-};
-
-// Initialize the chessboard (div with id 'myBoard') 
-var board = Chessboard('myBoard', config);
-
- // Update the board status on game start
-updateStatus();
-
-// =============================
-// ==  UI controls  ============
-// =============================
-
-// ==========  Start new game  ==========
-// Reset the game to the starting position
-function startNewGame() {
-    // Disable mid-game control changes
-    gameActive = true;
-    toggleGameControls(false);
-
-    // Clear queued move and reset game logic
-    window.clearTimeout(engineTimeout);
-    game.reset();
-
-    // Set the board orientation based on player color
-    playerColor = document.querySelector('input[name="color"]:checked').value;
-    board.orientation(playerColor);
-
-    // Reset the board 
-    board.start();
-    updateStatus();
-    engine.postMessage('ucinewgame');
-
-    // Focus the center of the board
-    document.getElementById('myBoard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Engine moves first if playing as black
-    if (playerColor === 'black') {
-        window.setTimeout(makeEngineMove, 250);
-    }
-}
-
-// Bind the reset function to the reset button
-var resetButton = document.getElementById('startBtn');
-resetButton.addEventListener('click', startNewGame);
-
-// ==========  Game over  ==========
-// Modal Elements
-var modal = document.getElementById("gameOverModal");
-var modalText = document.getElementById("gameResult");
-var modalReason = document.getElementById("gameReason");
-var modalBtn = document.getElementById("modalNewGameBtn");
-
-// Show the game over modal with the result  and reason 
-function showGameOverModal(result, reason) {
-    // win/loss/draw
-    modalText.innerText = result;
-    // checkmate/stalemate/repetition
-    modalReason.innerText = reason;
-
-    // Make the modal visible
-    modal.style.display = "flex";
-}
-
-function gameOverModalReset() {
-    modal.style.display = "none";
-    startNewGame();
-}
-
-// When the user clicks the button, reset the game and hide the modal
-modalBtn.addEventListener('click', gameOverModalReset);
-
-// ==========  Move history  ==========
+// Update the move history display with every move  
 function updateMoveHistory() {
     // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
     var history = game.history();
@@ -335,6 +258,97 @@ function updateMoveHistory() {
     // Auto-scroll the move history to the latest move
     pgnElement.scrollTop = pgnElement.scrollHeight;
 }
+
+// ==========  Board setup  ==========
+// Create configurations for the chessboard before it is created
+var config = {
+  draggable: true,
+  position: 'start',
+  onDragStart: onDragStart,
+  onDrop: onDrop,
+  onSnapEnd: onSnapEnd
+};
+
+// Initialize the chessboard (div with id 'myBoard') 
+var board = Chessboard('myBoard', config);
+
+ // Update the board status on game start
+updateStatus();
+
+// =============================
+// ==  UI controls  ============
+// =============================
+
+// ==========  Start new game  ==========
+// Reset the game to the starting position
+function startNewGame() {
+    // Hide the game over modal if visible
+    modal.style.display = "none";
+
+    // Disable mid-game control changes
+    gameActive = true;
+    toggleGameControls(false);
+
+    // Clear queued move and reset game logic
+    window.clearTimeout(engineTimeout);
+    game.reset();
+
+    // Set the board orientation based on player color
+    playerColor = document.querySelector('input[name="color"]:checked').value;
+    board.orientation(playerColor);
+
+    // Reset the board 
+    board.start();
+    updateStatus();
+    engine.postMessage('ucinewgame');
+
+    // Focus the center of the board
+    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Engine moves first if playing as black
+    if (playerColor === 'black') {
+        window.setTimeout(makeEngineMove, 250);
+    }
+}
+// Bind the reset function to the reset button
+var resetButton = document.getElementById('startBtn');
+resetButton.addEventListener('click', startNewGame);
+
+// ==========  Game over  ==========
+// Modal Elements
+var modal = document.getElementById("gameOverModal");
+var modalText = document.getElementById("gameResult");
+var modalReason = document.getElementById("gameReason");
+var modalBtnRematch = document.getElementById("modalRematchBtn");
+var modalBtnClose = document.getElementById("modalCloseBtn");
+
+// Show the game over modal with the result and reason 
+function showGameOverModal(result, reason) {
+    // win/loss/draw
+    modalText.innerText = result;
+    // checkmate/stalemate/repetition
+    modalReason.innerText = reason;
+
+    // Make the modal visible
+    modal.style.display = "flex";
+}
+
+// Start a new game with the same settings
+function gameOverModalRematch() {
+    startNewGame();
+}
+// Bind the modal rematch function to the Rematch button
+modalBtnRematch.addEventListener('click', gameOverModalRematch);
+
+// Close the modal without starting a new game
+function gameOverModalClose() {
+    modal.style.display = "none";
+}
+// Bind the close button functionality 
+modalBtnClose.addEventListener('click', gameOverModalClose);
+
+
+
 
 
 
