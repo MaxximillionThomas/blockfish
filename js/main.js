@@ -160,6 +160,9 @@ function toggleGameControls(isPlayable) {
 
     // Start new game button
     document.getElementById('startBtn').disabled = !isPlayable;
+
+    // Options button
+    document.getElementById('optionsBtn').enabled = isPlayable;
 }
 
 // Update the game status text
@@ -283,7 +286,7 @@ updateStatus();
 // Reset the game to the starting position
 function startNewGame() {
     // Hide the game over modal if visible
-    modal.style.display = "none";
+    gameOverModal.style.display = "none";
 
     // Disable mid-game control changes
     gameActive = true;
@@ -314,23 +317,23 @@ function startNewGame() {
 var resetButton = document.getElementById('startBtn');
 resetButton.addEventListener('click', startNewGame);
 
-// ==========  Game over  ==========
+// ==========  Game over modal  ==========
 // Modal Elements
-var modal = document.getElementById("gameOverModal");
-var modalText = document.getElementById("gameResult");
-var modalReason = document.getElementById("gameReason");
-var modalBtnRematch = document.getElementById("modalRematchBtn");
-var modalBtnClose = document.getElementById("modalCloseBtn");
+var gameOverModal = document.getElementById("gameOverModal");
+var gameOverModalText = document.getElementById("gameResult");
+var gameOverModalReason = document.getElementById("gameReason");
+var gameOverModalRematchBtn = document.getElementById("gameOverModalRematchBtn");
+var gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
 
 // Show the game over modal with the result and reason 
 function showGameOverModal(result, reason) {
     // win/loss/draw
-    modalText.innerText = result;
+    gameOverModalText.innerText = result;
     // checkmate/stalemate/repetition
-    modalReason.innerText = reason;
+    gameOverModalReason.innerText = reason;
 
     // Make the modal visible
-    modal.style.display = "flex";
+    gameOverModal.style.display = "flex";
 }
 
 // Start a new game with the same settings
@@ -338,14 +341,68 @@ function gameOverModalRematch() {
     startNewGame();
 }
 // Bind the modal rematch function to the Rematch button
-modalBtnRematch.addEventListener('click', gameOverModalRematch);
+gameOverModalRematchBtn.addEventListener('click', gameOverModalRematch);
 
 // Close the modal without starting a new game
 function gameOverModalClose() {
-    modal.style.display = "none";
+    gameOverModal.style.display = "none";
 }
-// Bind the close button functionality 
-modalBtnClose.addEventListener('click', gameOverModalClose);
+// Bind the close function to the close button
+gameOverModalCloseBtn.addEventListener('click', gameOverModalClose);
+
+// ==========  In-game options modal  ==========
+var optionsModal = document.getElementById('optionsModal');
+var optionsModalBtn = document.getElementById('optionsBtn');
+var optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
+var optionsModalResignBtn = document.getElementById('optionsModalResignBtn');
+
+// Open the options modal
+function openOptionsModal() {
+    // Prevent opening options before a game starts
+    if (!gameActive) {
+        return;
+    }
+
+    optionsModal.style.display = 'flex';
+}
+// Bind the open options modal function to the options button
+optionsModalBtn.addEventListener('click', openOptionsModal);
+
+// Close the options modal
+function closeOptionsModal() {
+    optionsModal.style.display = 'none';
+}
+// Bind the close function to the close button
+optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
+
+// Close the options module when clicking outside of it
+function optionsModuleOutsideClick(event) {
+    if (event.target == optionsModal) {
+        optionsModal.style.display = 'none';
+    }
+}
+window.addEventListener('click', optionsModuleOutsideClick);
+
+// Resign the game for a loss
+function resignGame() {
+    // Clear any queued engine moves
+    window.clearTimeout(engineTimeout);
+
+    // Hide the options modal and end the game
+    optionsModal.style.display = 'none';
+    gameActive = false;
+    toggleGameControls(true);
+
+    // Update the move status and show the game over modal
+    var moveColor = 'White';
+    if (game.turn() === 'b') {
+        moveColor = 'Black';
+    }
+    $('#status').html('Game over. ' + moveColor + ' has been resigned.');
+    showGameOverModal('Loss', 'Resignation');
+}
+// Bind the resign function to the resign button
+optionsModalResignBtn.addEventListener('click', resignGame);
 
 
 

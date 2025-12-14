@@ -9,19 +9,23 @@
 // ==  Menu  ===================
 // ============================= */
 
-.menuContainer {
+.menu-container {
     margin-bottom: 20px;
 }
 
-.menuItem {
+.menu-item {
     margin-bottom: 10px;
 }
 
+.menu-item-interactive {
+    cursor: pointer;
+}
+
 /* =============================
-// ==  Status & board  ===========
+// ==  Game Container ==========
 // ============================= */
 
-.gameContainer {
+.game-container {
     width: 440px;
     height: 460px;
     margin: 0 auto;
@@ -29,16 +33,66 @@
     background-color: #e9e9e9;
 }
 
+/* =============================
+// ==  Status & options  =======
+// ============================= */
+
+/* Row for holding Status and Options */
+.header-row {
+    display: flex;
+    align-items: center;
+    padding-top: 10px;
+    padding-left: 5px; 
+    padding-right: 5px; 
+    margin-bottom: 10px;
+}
+
+.status {
+    flex-grow: 1;
+    font-weight: bold;
+}
+
+.options-btn {
+    background: none;
+    font-size: 24px; 
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.options-btn:hover {
+    color: #555;
+}
+
+/* =============================
+// ==  Options modal  ==========
+// ============================= */
+
+.resign-btn {
+    width: 100%;
+    padding: 10px;
+    /* Stuck to the bottom */
+    margin-top: 20px; 
+    color: #cc0000;      
+    font-weight: bold;   
+    border: 2px solid #cc0000;
+    background-color: white;
+    cursor: pointer;
+}
+
+.resign-btn:hover {
+    background-color: #ffe6e6;
+    color: #a00;
+}
+
+/* =============================
+// ==  Board  ==================
+// ============================= */
+
 .board {
     margin-left: auto;
     margin-right: auto;
     width: 380px;
-}
-
-.status {
-    padding-top: 10px;
-    margin-bottom: 10px;
-    font-weight: bold;
 }
 
 /* =============================
@@ -91,7 +145,42 @@
 }
 
 /* =============================
-// ==  Game over  ==============
+// ==  Game over modal  ========
+// ============================= */
+
+/* Button Styling */
+.rematch-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 15px;
+}
+
+.rematch-btn:hover {
+    background-color: #45a049;
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    color: #ff4444; 
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1; 
+}
+
+.close-btn:hover {
+    color: #cc0000; 
+}
+
+/* =============================
+// ==  Modals  =================
 // ============================= */
 
 /* The Modal Background */
@@ -122,35 +211,4 @@
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     font-family: Arial, sans-serif;
-}
-
-/* Button Styling */
-.rematchBtn {
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 15px;
-}
-
-.rematchBtn:hover {
-    background-color: #45a049;
-}
-
-.close-btn {
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    color: #ff4444; 
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 1; 
-}
-
-.close-btn:hover {
-    color: #cc0000; 
 }
