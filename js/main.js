@@ -11,6 +11,7 @@
 
 // Establish the logic and rules of the chess game
 var game = new Chess();
+var playerColor = 'white';
 
 // =============================
 // ==  Engine  =================
@@ -105,9 +106,10 @@ function onDragStart (source, piece) {
     if (game.game_over()){
         return false;
     }
+
     // Opponents turn
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+    if ((playerColor === 'white' && piece.search(/^b/) !== -1) ||
+        (playerColor === 'black' && piece.search(/^w/) !== -1)) {
         return false;
     }   
 }
@@ -143,15 +145,15 @@ function updateStatus() {
     var status = '';
 
     // Determine whose turn it is
-    var moveColor = 'White';
+    var moveColor = 'white';
     if (game.turn() === 'b') {
-        moveColor = 'Black';
+        moveColor = 'black';
     }
 
     // Checkmate
     if (game.in_checkmate()) {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
-        showGameOverModal(moveColor === 'Black' ? 'You Win!' : 'You Lost', 'Checkmate');
+        showGameOverModal(moveColor != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
 
     // Draw
     } else if (game.in_draw()) {
@@ -188,7 +190,7 @@ var config = {
 };
 
 // Initialize the chessboard (div with id 'myBoard') 
- var board = Chessboard('myBoard', config);
+var board = Chessboard('myBoard', config);
 
  // Update the board status on game start
 updateStatus();
@@ -200,18 +202,26 @@ updateStatus();
 // ==========  Start new game  ==========
 // Reset the game to the starting position
 function startNewGame() {
-    // Clear any existing delayed moves
+    // Clear queued move and reset game logic
     window.clearTimeout(engineTimeout);
-    // Reset the game logic
     game.reset();
-    // Reset the board position
+
+    // Set the board orientation based on player color
+    playerColor = document.querySelector('input[name="color"]:checked').value;
+    board.orientation(playerColor);
+
+    // Reset the board 
     board.start();
-    // Update the status text
     updateStatus();
-    // Clear the engine's memory
     engine.postMessage('ucinewgame');
+
     // Focus the center of the board
     document.getElementById('myBoard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Engine moves first if playing as black
+    if (playerColor === 'black') {
+        window.setTimeout(makeEngineMove, 250);
+    }
 }
 
 // Bind the reset function to the reset button

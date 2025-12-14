@@ -27,17 +27,29 @@
     <!-- Menu options -->
     <div id="menuOptions">
         <!-- Bot difficulty drop-down selection -->
-        <label for="difficulty">Select Bot Difficulty: </label>
-        <select id="difficulty" onchange="setEngineDifficulty(this.value)">
-            <option value="0" selected>Easiest</option>
-            <option value="3">Easy</option>
-            <option value="7">Medium</option>
-            <option value="14">Hard</option>
-            <option value="20">Impossible</option>
-        </select>
+        <div>
+            <label for="difficulty">Select Bot Difficulty: </label>
+            <select id="difficulty" onchange="setEngineDifficulty(this.value)">
+                <option value="0" selected>Easiest</option>
+                <option value="3">Easy</option>
+                <option value="7">Medium</option>
+                <option value="14">Hard</option>
+                <option value="20">Impossible</option>
+            </select>
+        </div>
+
+        <!-- Player color radio buttons -->
+        <div>
+            <label for ="color">Play as: </label>
+            <label><input type="radio" id="white" name="color" value="white" checked>White</label>
+            <label><input type="radio" id="black" name="color" value="black">Black</label>
+        </div>
 
         <!-- Start new game button -->
-        <button id="startBtn">Start New Game</button>
+        <div>
+            <button id="startBtn">Start New Game</button>
+        </div>
+
     </div>
 
     <!-- Game container -->
