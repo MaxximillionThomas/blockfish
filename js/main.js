@@ -12,6 +12,7 @@
 // Establish the logic and rules of the chess game
 var game = new Chess();
 var playerColor = 'white';
+var gameActive = false;
 
 // =============================
 // ==  Engine  =================
@@ -102,6 +103,11 @@ function makeEngineMove() {
 
 // Prevent interactions once the game is over or during the opponents turn
 function onDragStart (source, piece) {
+    // No game in progress
+    if (!gameActive) {
+        return false;
+    }   
+
     // Game over
     if (game.game_over()){
         return false;
@@ -140,25 +146,49 @@ function onDrop (source, target) {
 // ==  Game  ===================
 // =============================
 
+// Toggle on/off game controls based on game state
+function toggleGameControls(isPlayable) {
+    // Difficulty drop-down
+    document.getElementById('difficulty').disabled = !isPlayable;
+    
+    // Color radio buttons
+    colorRadios = document.querySelectorAll('input[name="color"]');
+    colorRadios.forEach(function(radio) {
+        radio.disabled = !isPlayable;
+    });
+
+    // Start new game button
+    document.getElementById('startBtn').disabled = !isPlayable;
+}
+
 // Update the game status text
 function updateStatus() {
+    // If the game is not active, prompt the user
+    if (!gameActive) {
+        $('#status').html('Click "Start New Game" to begin playing.');
+        return;
+    }
+
+    // Initialize variables for active game
     var status = '';
+    var moveColor = 'White';
 
     // Determine whose turn it is
-    var moveColor = 'white';
     if (game.turn() === 'b') {
-        moveColor = 'black';
+        moveColor = 'Black';
     }
 
     // Checkmate
     if (game.in_checkmate()) {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
-        showGameOverModal(moveColor != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
+        showGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
+        gameActive = false;
 
     // Draw
     } else if (game.in_draw()) {
         status = 'Game over, the position is a draw.';
         showGameOverModal('Draw', 'Stalemate / Repetition');
+        gameActive = false;
 
     // Ongoing game
     } else {
@@ -173,6 +203,11 @@ function updateStatus() {
 
     // Update the move history div
     updateMoveHistory();
+
+    // Unlock game controls if the game is over
+    if (!gameActive) {
+        toggleGameControls(true);
+    }
 }
 
 // Force the board to accurately reflect the game state
@@ -202,6 +237,10 @@ updateStatus();
 // ==========  Start new game  ==========
 // Reset the game to the starting position
 function startNewGame() {
+    // Disable mid-game control changes
+    gameActive = true;
+    toggleGameControls(false);
+
     // Clear queued move and reset game logic
     window.clearTimeout(engineTimeout);
     game.reset();

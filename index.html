@@ -25,9 +25,9 @@
     <h1>You vs Stockfish</h1>
 
     <!-- Menu options -->
-    <div id="menuOptions">
+    <div id="menuContainer" class="menuContainer">
         <!-- Bot difficulty drop-down selection -->
-        <div>
+        <div class="menuItem">
             <label for="difficulty">Select Bot Difficulty: </label>
             <select id="difficulty" onchange="setEngineDifficulty(this.value)">
                 <option value="0" selected>Easiest</option>
@@ -39,7 +39,7 @@
         </div>
 
         <!-- Player color radio buttons -->
-        <div>
+        <div class="menuItem">
             <label for ="color">Play as: </label>
             <label><input type="radio" id="white" name="color" value="white" checked>White</label>
             <label><input type="radio" id="black" name="color" value="black">Black</label>
@@ -53,15 +53,15 @@
     </div>
 
     <!-- Game container -->
-    <div id="gameContainer">
+    <div id="gameContainer" class="gameContainer">
         <!-- Turn status (your move / bot move) -->
-        <div id="status">Turn: Loading...</div>
+        <div id="status" class="status">Turn: Loading...</div>
 
         <!-- Chess board-->
         <div id="myBoard"></div>
 
         <!-- Move history -->
-        <div id="pgn"></div>
+        <div id="pgn" class="pgn"></div>
     </div>
 
     <!-- Game over pop-up -->

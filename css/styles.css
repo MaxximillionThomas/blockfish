@@ -9,22 +9,26 @@
 // ==  Menu  ===================
 // ============================= */
 
-#menuOptions {
+.menuContainer {
     margin-bottom: 20px;
+}
+
+.menuItem {
+    margin-bottom: 10px;
 }
 
 /* =============================
 // ==  Status & board  ===========
 // ============================= */
 
-#gameContainer {
+.gameContainer {
     width: 400px;
     margin: 0 auto;
     text-align: center;
 }
 
-#status {
-    margin-bottom: 10px;
+.status {
+    margin-bottom: 5px;
     font-weight: bold;
 }
 
@@ -33,7 +37,7 @@
 // ============================= */
 
 /* Parent move history element - updates with the subsequent styles through js */
-#pgn {
+.pgn {
     margin-top: 40px;
     margin-bottom: 40px;
     height: 150px; 
