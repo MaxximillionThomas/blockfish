@@ -190,8 +190,19 @@ function updateStatus() {
 
     // Draw
     } else if (game.in_draw()) {
-        status = 'Game over, the position is a draw.';
-        showGameOverModal('Draw', 'Stalemate / Repetition');
+        // Stalemate
+        if (game.in_stalemate()) {
+            status = 'Game over. A draw by stalemate was reached.';
+            showGameOverModal('Draw', 'Stalemate');
+        // Repetition
+        } else if (game.in_threefold_repetition()) {
+            status = 'Game over. A draw by threefold repetition was reached.';
+            showGameOverModal('Draw', 'Threefold Repetition');
+        // Insufficient material
+        } else if (game.insufficient_material()) {
+            status = 'Game over. A draw by insufficient material was reached.';
+            showGameOverModal('Draw', 'Insufficient Material');
+        }
         gameActive = false;
 
     // Ongoing game
@@ -224,10 +235,8 @@ function updateMoveHistory() {
     // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
     var history = game.history();
     
-    // Create an HTML table for storing move history
-    var html = '<table class="move-table">';
-    html += '<thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>';
-    html += '<tbody>';
+    // Create an HTML body for storing move history
+    var html = '';
 
     // Iterate through moves in pairs (1. white, 2. black)
     for (var i = 0; i < history.length; i += 2) {
@@ -251,14 +260,12 @@ function updateMoveHistory() {
         html += '</tr>';
     }
 
-    // Close the table after all moves are added
-    html += '</tbody></table>';
-
-    // Update the HTML element with the generated table
-    var pgnElement = document.getElementById('pgn');
-    pgnElement.innerHTML = html;
+    // Update the HTML element with the generated table data
+    var moveHistoryBodyElement = document.getElementById('moveHistoryBody');
+    moveHistoryBodyElement.innerHTML = html;
     
     // Auto-scroll the move history to the latest move
+    var pgnElement = document.getElementById('pgn');
     pgnElement.scrollTop = pgnElement.scrollHeight;
 }
 
@@ -287,6 +294,9 @@ updateStatus();
 function startNewGame() {
     // Hide the game over modal if visible
     gameOverModal.style.display = "none";
+
+    // Reveal the move history panel
+    document.getElementById('pgn').style.display = 'block';
 
     // Disable mid-game control changes
     gameActive = true;
