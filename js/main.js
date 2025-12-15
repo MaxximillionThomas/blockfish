@@ -15,6 +15,11 @@ var playerColor = 'white';
 var gameActive = false;
 
 // =============================
+// ==  Accessibility  ==========
+// =============================
+var viewingModal = false;
+
+// =============================
 // ==  Navigation  =============
 // =============================
 
@@ -204,7 +209,7 @@ function updateStatus() {
     // Checkmate
     if (game.in_checkmate()) {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
-        showGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
+        openGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
 
     // Draw
@@ -212,15 +217,15 @@ function updateStatus() {
         // Stalemate
         if (game.in_stalemate()) {
             status = 'Game over. A draw by stalemate was reached.';
-            showGameOverModal('Draw', 'Stalemate');
+            openGameOverModal('Draw', 'Stalemate');
         // Repetition
         } else if (game.in_threefold_repetition()) {
             status = 'Game over. A draw by threefold repetition was reached.';
-            showGameOverModal('Draw', 'Threefold Repetition');
+            openGameOverModal('Draw', 'Threefold Repetition');
         // Insufficient material
         } else if (game.insufficient_material()) {
             status = 'Game over. A draw by insufficient material was reached.';
-            showGameOverModal('Draw', 'Insufficient Material');
+            openGameOverModal('Draw', 'Insufficient Material');
         }
         gameActive = false;
 
@@ -317,6 +322,11 @@ updateStatus();
 // ==========  Start new game  ==========
 // Reset the game to the starting position
 function startNewGame() {
+    // Disallow accidental new game start-up
+    if (gameActive) {
+        return;
+    }
+
     // Hide the game over modal if visible
     gameOverModal.style.display = "none";
 
@@ -365,7 +375,7 @@ var gameOverModalRematchBtn = document.getElementById("gameOverModalRematchBtn")
 var gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
 
 // Show the game over modal with the result and reason 
-function showGameOverModal(result, reason) {
+function openGameOverModal(result, reason) {
     // win/loss/draw
     gameOverModalText.innerText = result;
     // checkmate/stalemate/repetition
@@ -373,21 +383,19 @@ function showGameOverModal(result, reason) {
 
     // Make the modal visible
     gameOverModal.style.display = "flex";
+    viewingModal = true;
 }
 
-// Start a new game with the same settings
-function gameOverModalRematch() {
-    startNewGame();
-}
-// Bind the modal rematch function to the Rematch button
-gameOverModalRematchBtn.addEventListener('click', gameOverModalRematch);
+// Bind the start new gamefunction to the Rematch button
+gameOverModalRematchBtn.addEventListener('click', startNewGame);
 
 // Close the modal without starting a new game
-function gameOverModalClose() {
+function closeGameOverModal() {
     gameOverModal.style.display = "none";
+    viewingModal = false;
 }
 // Bind the close function to the close button
-gameOverModalCloseBtn.addEventListener('click', gameOverModalClose);
+gameOverModalCloseBtn.addEventListener('click', closeGameOverModal);
 
 // ==========  In-game options modal  ==========
 var optionsModal = document.getElementById('optionsModal');
@@ -403,6 +411,7 @@ function openOptionsModal() {
     }
 
     optionsModal.style.display = 'flex';
+    viewingModal = true;
 }
 // Bind the open options modal function to the options button
 optionsModalBtn.addEventListener('click', openOptionsModal);
@@ -410,6 +419,7 @@ optionsModalBtn.addEventListener('click', openOptionsModal);
 // Close the options modal
 function closeOptionsModal() {
     optionsModal.style.display = 'none';
+    viewingModal = false;
 }
 // Bind the close function to the close button
 optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
@@ -424,6 +434,11 @@ window.addEventListener('click', optionsModuleOutsideClick);
 
 // Resign the game for a loss
 function resignGame() {
+    // Only allow shortcut key while the options menu is open
+    if (!viewingModal) {
+        return;
+    }
+
     // Clear any queued engine moves
     window.clearTimeout(engineTimeout);
 
@@ -438,7 +453,7 @@ function resignGame() {
         moveColor = 'Black';
     }
     $('#status').html('Game over. ' + moveColor + ' has resigned.');
-    showGameOverModal('Loss', 'Resignation');
+    openGameOverModal('Loss', 'Resignation');
 }
 // Bind the resign function to the resign button
 optionsModalResignBtn.addEventListener('click', resignGame);
@@ -467,8 +482,96 @@ function navigateForward() {
 // Bind the forward function to the forward button
 forwardBtn.addEventListener('click', navigateForward);
 
+// =============================
+// ==  Hotkeys  ================
+// =============================
 
+// Ordered by probable frequency of use by chess players
+document.addEventListener('keydown', function(event) {
+    switch (event.key) {
+        // Navigate back
+        case 'ArrowLeft':
+        case 'Home':
+            navigateBack();
+            break;
 
+        // Navigate forward
+        case 'ArrowRight':
+        case 'End':
+            navigateForward();
+            break;
+
+        // Black
+        case 'b':
+        case 'b':
+            blackBtn = document.querySelector('input[name="color"][value="black"]');
+            blackBtn.checked = true;
+            blackBtn.focus();
+            break;
+
+        // White
+        case 'w':
+        case 'W':
+            whiteBtn = document.querySelector('input[name="color"][value="white"]');
+            whiteBtn.checked = true;
+            whiteBtn.focus();
+            break;
+        
+        // Start new game
+        case 's':
+        case 'S':
+            startNewGame();
+            break;
+
+        // Resign or rematch
+        case 'r':
+        case 'R':
+            // Resign - optionsModal
+            if (gameActive) {
+                resignGame();
+            // Rematch - gameOverModal
+            } else {
+                if (viewingModal){
+                    startNewGame();
+                }
+            }
+            break;
+
+        // Close all modals
+        case 'Escape':
+            closeGameOverModal();
+            closeOptionsModal();
+            break;
+
+        // Open options modal
+        case 'o':
+        case 'O':
+            optionsModal.style.display = 'block';
+            break;
+
+        // Difficulty
+        case 'd':
+        case 'D':
+            document.getElementById('difficulty').focus();
+            break;
+
+        // Play as (White/Black)
+        case 'p':
+        case 'P':
+            var whiteBtn = document.querySelector('input[name="color"][value="white"]');
+            var blackBtn = document.querySelector('input[name="color"][value="black"]');
+            // White selected -> Switch to Black
+            if (whiteBtn.checked) {
+                blackBtn.checked = true;
+                blackBtn.focus(); 
+            // Black selected -> Switch to White
+            } else {
+                whiteBtn.checked = true;
+                whiteBtn.focus();
+            }
+            break;
+    }
+});
 
 
 

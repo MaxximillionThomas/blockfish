@@ -196,7 +196,7 @@
 }
 
 .close-btn {
-    position: absolute;
+    position: absolute !important;
     top: 10px;
     right: 20px;
     color: #ff4444; 
@@ -242,4 +242,50 @@
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     font-family: Arial, sans-serif;
+}
+
+/* =============================
+// ==  Tooltips  ===============
+// ============================= */
+
+[data-tooltip] {
+    /* Tooltips will be positioned relative to their buttons*/
+    position: relative; 
+}
+
+[data-tooltip]::after {
+    /* Retrieve the tooltip text from the respective HTML element */
+    content: attr(data-tooltip); 
+    
+    /* Always appear above other elements */
+    z-index: 9999;
+    position: absolute;
+    /* Center it vertically */       
+    top: 50%;             
+    transform: translateY(-50%);
+    /* Push it to the right */       
+    left: 100%;             
+    margin-left: 10px;
+    
+    background-color: #333; 
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    /* No text wrap */
+    white-space: nowrap;   
+    
+     /* Invisible until hovering */
+    opacity: 0;      
+    /* Don't block mouse clicks */     
+    pointer-events: none;  
+    /* Fade in effect */
+    transition: opacity 0.2s; 
+}
+
+/* Reveal on Hover */
+[data-tooltip]:hover::after {
+    /* Always appear above other elements */
+    z-index: 9999;
+    opacity: 1;           
 }

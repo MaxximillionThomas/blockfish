@@ -29,25 +29,27 @@
         <!-- Bot difficulty drop-down selection -->
         <div class="menu-item">
             <label for="difficulty">Select Bot Difficulty: </label>
-            <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)">
-                <option value="0" selected>Easiest</option>
-                <option value="3">Easy</option>
-                <option value="7">Medium</option>
-                <option value="14">Hard</option>
-                <option value="20">Impossible</option>
-            </select>
+            <label data-tooltip="Change the difficulty of the chess engine">
+                <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)" >
+                    <option value="0" selected>1 - Easiest</option>
+                    <option value="3">2 - Easy</option>
+                    <option value="7">3 - Medium</option>
+                    <option value="14">4 - Hard</option>
+                    <option value="20">5 - Impossible</option>
+                </select>
+            </label>
         </div>
 
         <!-- Player color radio buttons -->
         <div class="menu-item">
-            <label for ="color">Play as: </label>
-            <label><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive">White</label>
-            <label><input type="radio" id="black" name="color" value="black" class="menu-item-interactive">Black</label>
+            <label for="color">Play as: </label>
+            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive">White</label>
+            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive">Black</label>
         </div>
 
         <!-- Start new game button -->
         <div>
-            <button id="startBtn" class="menu-item-interactive">Start New Game</button>
+            <button id="startBtn" class="menu-item-interactive" data-tooltip="Start a new game using the current settings">Start New Game</button>
         </div>
 
     </div>
@@ -58,7 +60,7 @@
             <!-- Turn status (your move / bot move) -->
             <div id="status" class="status">Turn: Loading...</div>
             <!-- Options -->
-             <button id="optionsBtn" class="options-btn">☰</button> 
+            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options">☰</button> 
         </div>
 
         <!-- Chess board-->
@@ -66,8 +68,8 @@
 
         <!-- Back / Forward -->
         <div class="control-row">
-            <button id="backBtn" class="control-btn">⟵</button>
-            <button id="forwardBtn" class="control-btn">⟶</button>
+            <button id="backBtn" class="control-btn" data-tooltip="View the previous move">⟵</button>
+            <button id="forwardBtn" class="control-btn" data-tooltip="View the next move">⟶</button>
         </div>
     </div>
 
@@ -89,24 +91,41 @@
     <!-- Game over modal -->
     <div id="gameOverModal" class="modal">
         <div class="modal-content">
-            <span id="gameOverModalCloseBtn" class="close-btn">&times;</span>
+            <span id="gameOverModalCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
 
             <h2 id="gameResult">Game Over</h2>
             <p id="gameReason">Checkmate</p>
 
-            <button id="gameOverModalRematchBtn" class="rematch-btn">Rematch</button>
+            <button id="gameOverModalRematchBtn" class="rematch-btn" data-tooltip="Rematch with the same settings">Rematch</button>
         </div>
     </div>
 
     <!-- Options modal -->
     <div id="optionsModal" class="modal">
         <div class="modal-content">
-            <span id="optionsModalCloseBtn" class="close-btn">&times;</span>
+            <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
+
             <h2>Options</h2>
             <p>*Put some checkboxes and toggle items*</p>
-            <button id="optionsModalResignBtn" class="resign-btn">RESIGN</button>
+
+            <button id="optionsModalResignBtn" class="resign-btn" data-tooltip="Resign the match for a loss">RESIGN</button>
         </div>
     </div>
+
+    <!-- Yes/No modal -->
+    <div id="yesNoModal" class="modal">
+        <div class="modal-content">
+            <span id="yesNoCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
+
+            <h2>Confirm</h2>
+            <p id="confirmText"></p>
+
+            <button id="yesBtn" class="yes-btn" data-tooltip="Confirm choice">Yes</button>
+            <button id="yesBtn" class="yes-btn" data-tooltip="Cancel choice">No</button>
+        </div>
+    </div>
+
+
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
