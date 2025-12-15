@@ -15,6 +15,14 @@ var playerColor = 'white';
 var gameActive = false;
 
 // =============================
+// ==  Navigation  =============
+// =============================
+
+// Store FEN history for back/forward navigation
+var fenHistory = [];
+var viewingIndex = 0;
+
+// =============================
 // ==  Engine  =================
 // =============================
 
@@ -79,6 +87,9 @@ engine.onmessage = function(event) {
             promotion: promotion || 'q'
         });
 
+        // Save the current position to the FEN history
+        fenSnapshot();
+
         // Update the chessboard with the engine's move
         board.position(game.fen());
         updateStatus();
@@ -108,6 +119,11 @@ function onDragStart (source, piece) {
         return false;
     }   
 
+    // Prevent moving pieces when viewing previous positions
+    if (viewingIndex < fenHistory.length - 1) {
+        return false;
+    }
+
     // Game over
     if (game.game_over()){
         return false;
@@ -134,6 +150,9 @@ function onDrop (source, target) {
     if (move === null) {
         return 'snapback';
     }
+
+    // Save the current position to the FEN history
+    fenSnapshot();
 
     // Update the turn status text
     updateStatus();
@@ -269,6 +288,12 @@ function updateMoveHistory() {
     pgnElement.scrollTop = pgnElement.scrollHeight;
 }
 
+// Save the current board position to the FEN history
+function fenSnapshot() {
+    fenHistory.push(game.fen());
+    viewingIndex = fenHistory.length - 1;
+}
+
 // ==========  Board setup  ==========
 // Create configurations for the chessboard before it is created
 var config = {
@@ -294,6 +319,10 @@ updateStatus();
 function startNewGame() {
     // Hide the game over modal if visible
     gameOverModal.style.display = "none";
+
+    // Initialize list of FEN position history
+    fenHistory = [game.fen()];
+    viewingIndex = 0;
 
     // Reveal the move history panel
     document.getElementById('pgn').style.display = 'block';
@@ -408,12 +437,35 @@ function resignGame() {
     if (game.turn() === 'b') {
         moveColor = 'Black';
     }
-    $('#status').html('Game over. ' + moveColor + ' has been resigned.');
+    $('#status').html('Game over. ' + moveColor + ' has resigned.');
     showGameOverModal('Loss', 'Resignation');
 }
 // Bind the resign function to the resign button
 optionsModalResignBtn.addEventListener('click', resignGame);
 
+// ==========  Back / forward navigation  ==========
+var backBtn = document.getElementById('backBtn');
+var forwardBtn = document.getElementById('forwardBtn');
+
+// Navigate back to the previous position
+function navigateBack() {
+    if (viewingIndex > 0) {
+        viewingIndex--;
+        board.position(fenHistory[viewingIndex]);
+    }   
+}
+// Bind the back function to the back button
+backBtn.addEventListener('click', navigateBack);
+
+// Navigate forward to the next position
+function navigateForward() {
+    if (viewingIndex < fenHistory.length - 1) {
+        viewingIndex++;
+        board.position(fenHistory[viewingIndex]);
+    }   
+}
+// Bind the forward function to the forward button
+forwardBtn.addEventListener('click', navigateForward);
 
 
 
