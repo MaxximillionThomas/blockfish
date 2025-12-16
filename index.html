@@ -30,7 +30,7 @@
         <div class="menu-item">
             <label for="difficulty">Select Bot Difficulty: </label>
             <label data-tooltip="Change the difficulty of the chess engine">
-                <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)" >
+                <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)">
                     <option value="0" selected>1 - Easiest</option>
                     <option value="3">2 - Easy</option>
                     <option value="7">3 - Medium</option>
@@ -43,13 +43,16 @@
         <!-- Player color radio buttons -->
         <div class="menu-item">
             <label for="color">Play as: </label>
-            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive">White</label>
-            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive">Black</label>
+            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked
+                    class="menu-item-interactive">White</label>
+            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black"
+                    class="menu-item-interactive">Black</label>
         </div>
 
         <!-- Start new game button -->
         <div>
-            <button id="startBtn" class="menu-item-interactive" data-tooltip="Start a new game using the current settings">Start New Game</button>
+            <button id="startBtn" class="menu-item-interactive"
+                data-tooltip="Start a new game using the current settings">Start New Game</button>
         </div>
 
     </div>
@@ -60,7 +63,7 @@
             <!-- Turn status (your move / bot move) -->
             <div id="status" class="status">Turn: Loading...</div>
             <!-- Options -->
-            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options">☰</button> 
+            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options">☰</button>
         </div>
 
         <!-- Chess board-->
@@ -96,7 +99,8 @@
             <h2 id="gameResult">Game Over</h2>
             <p id="gameReason">Checkmate</p>
 
-            <button id="gameOverModalRematchBtn" class="rematch-btn" data-tooltip="Rematch with the same settings">Rematch</button>
+            <button id="gameOverModalRematchBtn" class="rematch-btn"
+                data-tooltip="Rematch with the same settings">Rematch</button>
         </div>
     </div>
 
@@ -108,6 +112,16 @@
             <h2>Options</h2>
             <p>*Put some checkboxes and toggle items*</p>
 
+            <!-- Toggle move highlighting -->
+            <div class="control-row">
+                <label for="moveHighlights">Highlight legal moves</label>
+                <label class="switch" data-tooltip="Highlight legal moves for the selected piece">
+                    <input type="checkbox" id="optionsModalHighlightsCheckbox" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <!-- Resign -->
             <button id="optionsModalResignBtn" class="resign-btn" data-tooltip="Resign the match for a loss">RESIGN</button>
         </div>
     </div>

@@ -20,6 +20,7 @@ var squareClass = 'square-55d63';
 // ==  Accessibility  ==========
 // =============================
 var viewingModal = false;
+var highlightsEnabled = true;
 
 // =============================
 // ==  Navigation  =============
@@ -94,6 +95,10 @@ engine.onmessage = function(event) {
             promotion: promotion || 'q'
         });
 
+        // Highlight the engine's move for player awareness
+        removeHighlights();
+        highlightLastMove(source, target)
+
         // Save the current position to the FEN history
         fenSnapshot();
 
@@ -119,7 +124,7 @@ function makeEngineMove() {
 // ==  Player  =================
 // =============================
 
-// Prevent interactions once the game is over or during the opponents turn
+// Prevent illegal interactions and highlight legal moves
 function onDragStart (source, piece) {
     // No game in progress
     if (!gameActive) {
@@ -141,6 +146,19 @@ function onDragStart (source, piece) {
         (playerColor === 'black' && piece.search(/^w/) !== -1)) {
         return false;
     }
+
+    // Clear previous click selections before handling this piece
+    if (selectedSquare != null) {
+        selectedSquare = null;
+        removeHighlights();
+    }
+
+
+    // Highlight the selected piece and it's legal moves
+    highlightSquare(source);
+    highlightMoves(source);
+
+    return true;
 }
 
 // Allow piece drop interactions between chess pieces and squares
@@ -162,14 +180,18 @@ function onDrop (source, target) {
 
     // If the move is illegal, return the piece to its original square
     if (move === null) {
+        selectedSquare = null;
+        removeHighlights();
         return 'snapback';
     }
 
     // Clear click-moving state after a successful move
     selectedSquare = null;
-    removeHighlights();
 
-    
+    // Highlight the players move for awareness
+    removeHighlights();
+    highlightLastMove(source, target); 
+
     // Save the current position to the FEN history
     fenSnapshot();
 
@@ -188,15 +210,17 @@ function highlightSquare(square) {
 
 // Highlight the legal moves for the piece that the player has clicked
 function highlightMoves(square) {
-    // Get legal moves for the piece
-    var moves = game.moves({
-        square: square,
-        verbose: true
-    });
+    if (highlightsEnabled) {
+        // Get legal moves for the piece
+        var moves = game.moves({
+            square: square,
+            verbose: true
+        });
 
-    // Highlight every legal square
-    for (var i = 0; i < moves.length; i++) {
-        $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
+        // Highlight every legal square
+        for (var i = 0; i < moves.length; i++) {
+            $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
+        }
     }
 }
 
@@ -204,6 +228,23 @@ function highlightMoves(square) {
 function removeHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-source');
     $('#myBoard .square-55d63').removeClass('highlight-move');
+}
+
+// Clear the highlights of the last move played
+function clearLastMoveHighlights() {
+    $('#myBoard .square-55d63').removeClass('highlight-played');
+}
+
+// Highlight the last move played
+function highlightLastMove(source, target) {
+    clearLastMoveHighlights();
+    $('#myBoard .square-' + source).addClass('highlight-played');
+    $('#myBoard .square-' + target).addClass('highlight-played');
+}
+
+// Enable and disable legal move highlighting ability
+function toggleHighlights() {
+    highlightsEnabled = !highlightsEnabled;
 }
 
 // Handle the logic of square clicks under different scenarios
@@ -265,7 +306,6 @@ function handleSquareClickInteractions(square) {
         board.position(game.fen());
         fenSnapshot();
         updateStatus();
-        removeHighlights();
         selectedSquare = null;
         window.setTimeout(makeEngineMove, 250);
     }
@@ -518,6 +558,7 @@ var optionsModal = document.getElementById('optionsModal');
 var optionsModalBtn = document.getElementById('optionsBtn');
 var optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
 var optionsModalResignBtn = document.getElementById('optionsModalResignBtn');
+var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
 
 // Open the options modal
 function openOptionsModal() {
@@ -562,6 +603,9 @@ function resignGame() {
 }
 // Bind the resign function to the resign button
 optionsModalResignBtn.addEventListener('click', resignGame);
+
+// Bind the move-highlighting toggle function to the highlights checkbox
+optionsModalHighlightsCheckbox.addEventListener('click', toggleHighlights)
 
 // ==========  Confirm choice (yes/no) modal  ==========
 var yesNoModal = document.getElementById('yesNoModal');
@@ -657,7 +701,7 @@ console.log(event.key);
 
         // Black
         case 'b':
-        case 'b':
+        case 'B':
             blackBtn = document.querySelector('input[name="color"][value="black"]');
             blackBtn.checked = true;
             blackBtn.focus();
@@ -750,9 +794,16 @@ console.log(event.key);
                 cancelResignation();
             }
             break;
+
+        // Toggle highlighting
+        case 'h':
+        case 'H':
+            var optionsModal = document.getElementById('optionsModal');
+            var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+            if (optionsModal.style.display == 'flex') {
+                toggleHighlights();
+                optionsModalHighlightsCheckbox.checked = highlightsEnabled;
+            }
+            break;
     }
 });
-
-
-
- 
