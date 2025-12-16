@@ -328,7 +328,7 @@ function startNewGame() {
     }
 
     // Hide the game over modal if visible
-    gameOverModal.style.display = "none";
+    closeGameOverModal();
 
     // Initialize list of FEN position history
     fenHistory = [game.fen()];
@@ -427,23 +427,51 @@ optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
 // Close the options module when clicking outside of it
 function optionsModuleOutsideClick(event) {
     if (event.target == optionsModal) {
-        optionsModal.style.display = 'none';
+        closeOptionsModal();
     }
 }
 window.addEventListener('click', optionsModuleOutsideClick);
 
 // Resign the game for a loss
 function resignGame() {
-    // Only allow shortcut key while the options menu is open
+    // Only allow shortcut key while the options modal is open
     if (!viewingModal) {
         return;
     }
 
+    // Close the options modal and open the confirm choice modal
+    closeOptionsModal();
+    yesNoModal.style.display = 'flex';
+
+}
+// Bind the resign function to the resign button
+optionsModalResignBtn.addEventListener('click', resignGame);
+
+// ==========  Confirm choice (yes/no) modal  ==========
+var yesNoModal = document.getElementById('yesNoModal');
+var yesBtn = document.getElementById('yesBtn');
+var noBtn = document.getElementById('noBtn');
+var yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
+
+// Open yesNoModal
+function openYesNoModal() {
+    yesNoModal.style.display = 'flex';
+    viewingModal = true;
+}
+
+// Close yesNoModal
+function closeYesNoModal() {
+    yesNoModal.style.display = 'none';
+    viewingModal = false;
+}
+
+// Resign only if the user clicks Yes to confirm their choice
+function confirmResignation() {
     // Clear any queued engine moves
     window.clearTimeout(engineTimeout);
 
-    // Hide the options modal and end the game
-    optionsModal.style.display = 'none';
+    // Close the confirmation modal and end the game
+    closeYesNoModal();
     gameActive = false;
     toggleGameControls(true);
 
@@ -455,8 +483,17 @@ function resignGame() {
     $('#status').html('Game over. ' + moveColor + ' has resigned.');
     openGameOverModal('Loss', 'Resignation');
 }
-// Bind the resign function to the resign button
-optionsModalResignBtn.addEventListener('click', resignGame);
+// Bind the resignation confirmation button to the Yes button
+yesBtn.addEventListener('click', confirmResignation);
+
+// Cancel resignation and return the user to the options meodal
+function cancelResignation() {
+    closeYesNoModal();
+    openOptionsModal();
+}
+// Bind the resignation cancellation function to the cancel buttons
+noBtn.addEventListener('click', cancelResignation);
+yesNoCloseBtn.addEventListener('click', cancelResignation);
 
 // ==========  Back / forward navigation  ==========
 var backBtn = document.getElementById('backBtn');
@@ -488,6 +525,7 @@ forwardBtn.addEventListener('click', navigateForward);
 
 // Ordered by probable frequency of use by chess players
 document.addEventListener('keydown', function(event) {
+console.log(event.key);
     switch (event.key) {
         // Navigate back
         case 'ArrowLeft':
@@ -539,14 +577,22 @@ document.addEventListener('keydown', function(event) {
 
         // Close all modals
         case 'Escape':
-            closeGameOverModal();
-            closeOptionsModal();
+            var gamerOverModal = document.getElementById('gameOverModal');
+            var optionsModal = document.getElementById('optionsModal');
+            var yesNoModal = document.getElementById('yesNoModal');
+            if (gamerOverModal.style.display == 'flex') {
+                closeGameOverModal();
+            } else if (optionsModal.style.display == 'flex') {
+                closeOptionsModal();
+            } else if (yesNoModal.style.display == 'flex') {
+                cancelResignation();
+            }
             break;
 
         // Open options modal
         case 'o':
         case 'O':
-            optionsModal.style.display = 'block';
+            openOptionsModal();
             break;
 
         // Difficulty
@@ -568,6 +614,24 @@ document.addEventListener('keydown', function(event) {
             } else {
                 whiteBtn.checked = true;
                 whiteBtn.focus();
+            }
+            break;
+
+        // Confirm resignation
+        case 'y':
+        case 'Y':
+            var yesNoModal = document.getElementById('yesNoModal');
+            if (yesNoModal.style.display == 'flex') {
+                confirmResignation();
+            }
+            break;
+
+        // Cancel resignation
+        case 'n':
+        case 'N':
+            var yesNoModal = document.getElementById('yesNoModal');
+            if (yesNoModal.style.display == 'flex') {
+                cancelResignation();
             }
             break;
     }
