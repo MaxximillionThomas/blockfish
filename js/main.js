@@ -13,6 +13,8 @@
 var game = new Chess();
 var playerColor = 'white';
 var gameActive = false;
+var selectedSquare = null;
+var squareClass = 'square-55d63';
 
 // =============================
 // ==  Accessibility  ==========
@@ -138,11 +140,18 @@ function onDragStart (source, piece) {
     if ((playerColor === 'white' && piece.search(/^b/) !== -1) ||
         (playerColor === 'black' && piece.search(/^w/) !== -1)) {
         return false;
-    }   
+    }
 }
 
 // Allow piece drop interactions between chess pieces and squares
 function onDrop (source, target) {
+    // Classify the move as a 'click' if the piece is dragged and dropped to the same square
+    if (source === target) {
+        handleSquareClickInteractions(source);
+        // Visually return the piece to it's original square
+        return 'snapback';
+    }
+
     // Check if the move is legal 
     var move = game.move({
       from: source,
@@ -156,6 +165,11 @@ function onDrop (source, target) {
         return 'snapback';
     }
 
+    // Clear click-moving state after a successful move
+    selectedSquare = null;
+    removeHighlights();
+
+    
     // Save the current position to the FEN history
     fenSnapshot();
 
@@ -165,6 +179,108 @@ function onDrop (source, target) {
     // Make the engine move after a short delay
     window.setTimeout(makeEngineMove, 250);
 }
+
+// Highlight the square of the piece that the player has clicked
+function highlightSquare(square) {
+    var $square = $('#myBoard .square-' + square);
+    $square.addClass('highlight-source');
+}
+
+// Highlight the legal moves for the piece that the player has clicked
+function highlightMoves(square) {
+    // Get legal moves for the piece
+    var moves = game.moves({
+        square: square,
+        verbose: true
+    });
+
+    // Highlight every legal square
+    for (var i = 0; i < moves.length; i++) {
+        $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
+    }
+}
+
+// Remove highlighting of source square and legal move squares
+function removeHighlights() {
+    $('#myBoard .square-55d63').removeClass('highlight-source');
+    $('#myBoard .square-55d63').removeClass('highlight-move');
+}
+
+// Handle the logic of square clicks under different scenarios
+function handleSquareClickInteractions(square) {
+    if (!gameActive) {
+        return;
+    }
+
+    // Scenario 1 - player clicked a square to select a piece
+    // Current selection is null - no piece previously selected
+    if (selectedSquare === null) {
+        var piece = game.get(square);
+        
+        // Must be a piece, and must be the players color
+        if (!piece || piece.color !== game.turn()) {
+            return;
+        }
+
+        // Select it
+        selectedSquare = square;
+        highlightSquare(square);
+        highlightMoves(square);
+        return;
+    }
+
+    // Scenario 2 - player clicked a square to move a piece
+    // 2A. Same square clicked - deselect it
+    if (square === selectedSquare) {
+        selectedSquare = null;
+        removeHighlights();
+        return;
+    }
+
+    // 2B. New piece of the same color selected - change selection
+    var piece = game.get(square);
+    // If(piece) returns true if selection is not null - piece.color crashes on null
+    if (piece && piece.color === game.turn()) {
+        selectedSquare = square;
+        removeHighlights();
+        highlightSquare(square);
+        highlightMoves(square);
+        return;
+    }
+
+    // 2C. Attempt to move the selected piece to the target square
+    var move = game.move({
+        from: selectedSquare,
+        to: square,
+        promotion: 'q'
+    });
+
+    // 2D. Resolve the move
+    if (move === null) {
+        // Illegal move
+        selectedSquare = null;
+        removeHighlights();
+    } else {
+        // Legal move
+        board.position(game.fen());
+        fenSnapshot();
+        updateStatus();
+        removeHighlights();
+        selectedSquare = null;
+        window.setTimeout(makeEngineMove, 250);
+    }
+}
+
+// Perform an action based on the type of square clicked
+function onSquareClick(event) {
+    // 'this' is the specific .square-55d63 element that was clicked
+    var square = $(this).attr('data-square');
+    handleSquareClickInteractions(square);
+}
+// Bind the square click function to board clicks 
+$('#myBoard').on('click', '.square-55d63', onSquareClick);
+
+
 
 // =============================
 // ==  Game  ===================
