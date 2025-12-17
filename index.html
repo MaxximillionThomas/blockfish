@@ -43,10 +43,8 @@
         <!-- Player color radio buttons -->
         <div class="menu-item">
             <label for="color">Play as: </label>
-            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked
-                    class="menu-item-interactive">White</label>
-            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black"
-                    class="menu-item-interactive">Black</label>
+            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive">White</label>
+            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive">Black</label>
         </div>
 
         <!-- Start new game button -->
@@ -110,15 +108,22 @@
             <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
 
             <h2>Options</h2>
-            <p>*Put some checkboxes and toggle items*</p>
 
             <!-- Toggle move highlighting -->
             <div class="control-row">
-                <label for="moveHighlights">Highlight legal moves</label>
+                <label for="moveHighlights">Highlight legal moves:</label>
                 <label class="switch" data-tooltip="Highlight legal moves for the selected piece">
                     <input type="checkbox" id="optionsModalHighlightsCheckbox" checked>
                     <span class="slider"></span>
                 </label>
+            </div>
+
+            <!-- Moving preference radio buttons -->
+            <div class="control-row">
+                <label for="optionsModalMovingPreference">Moving: </label>
+                <label data-tooltip="Click to move pieces"><input type="radio" id="moveClick" name="optionsModalMovingPreference" value="click" class="menu-item-interactive">Click</label>
+                <label data-tooltip="Drag to move pieces"><input type="radio" id="moveDrag" name="optionsModalMovingPreference" value="drag" class="menu-item-interactive">Drag</label>
+                <label data-tooltip="Click or drag to move pieces"><input type="radio" id="moveBoth" name="optionsModalMovingPreference" value="both" class="menu-item-interactive" checked>Both</label>
             </div>
 
             <!-- Resign -->

@@ -21,6 +21,8 @@ var squareClass = 'square-55d63';
 // =============================
 var viewingModal = false;
 var highlightsEnabled = true;
+var clickMovesEnabled = true;
+var dragMovesEnabled = true;
 
 // =============================
 // ==  Navigation  =============
@@ -126,6 +128,11 @@ function makeEngineMove() {
 
 // Prevent illegal interactions and highlight legal moves
 function onDragStart (source, piece) {
+    // If the player prefers click-moving
+    if (!dragMovesEnabled) {
+        return false;
+    }
+
     // No game in progress
     if (!gameActive) {
         return false;
@@ -150,11 +157,11 @@ function onDragStart (source, piece) {
     // Clear previous click selections before handling this piece
     if (selectedSquare != null) {
         selectedSquare = null;
-        removeHighlights();
+
     }
 
-
-    // Highlight the selected piece and it's legal moves
+    // Highlight only the selected piece and it's legal moves
+    removeHighlights();
     highlightSquare(source);
     highlightMoves(source);
 
@@ -166,6 +173,12 @@ function onDrop (source, target) {
     // Classify the move as a 'click' if the piece is dragged and dropped to the same square
     if (source === target) {
         handleSquareClickInteractions(source);
+
+        // If in drag-mode, only display legal move highlighting while holding the piece (onDrag, not onDrop)
+        if (!clickMovesEnabled) {
+            removeHighlights();
+        }
+
         // Visually return the piece to it's original square
         return 'snapback';
     }
@@ -249,6 +262,12 @@ function toggleHighlights() {
 
 // Handle the logic of square clicks under different scenarios
 function handleSquareClickInteractions(square) {
+    // If the user prefers drag-moving
+    if (!clickMovesEnabled) {
+        return;
+    }
+
+    // Prevent pre-game interactions
     if (!gameActive) {
         return;
     }
@@ -553,12 +572,24 @@ function closeGameOverModal() {
 // Bind the close function to the close button
 gameOverModalCloseBtn.addEventListener('click', closeGameOverModal);
 
+// Determine whether the game over modal is open
+function gameOverModalStatus() {
+    var status = false;
+    if (gameOverModal.style.display == 'flex') {
+        status = true;
+    }
+    return status;
+}
+
 // ==========  In-game options modal  ==========
 var optionsModal = document.getElementById('optionsModal');
 var optionsModalBtn = document.getElementById('optionsBtn');
 var optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
 var optionsModalResignBtn = document.getElementById('optionsModalResignBtn');
 var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+var clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+var dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
 
 // Open the options modal
 function openOptionsModal() {
@@ -589,6 +620,15 @@ function optionsModuleOutsideClick(event) {
 }
 window.addEventListener('click', optionsModuleOutsideClick);
 
+// Determine whether the options modal is open
+function optionsModalStatus() {
+    var status = false;
+    if (optionsModal.style.display == 'flex') {
+        status = true;
+    }
+    return status;
+}
+
 // Resign the game for a loss
 function resignGame() {
     // Only allow shortcut key while the options modal is open
@@ -607,6 +647,22 @@ optionsModalResignBtn.addEventListener('click', resignGame);
 // Bind the move-highlighting toggle function to the highlights checkbox
 optionsModalHighlightsCheckbox.addEventListener('click', toggleHighlights)
 
+// Set clicking and dragging abilities according to user preferences
+function setMovingPreference(enableClicking, enableDragging) {
+    clickMovesEnabled = enableClicking;
+    dragMovesEnabled = enableDragging;
+
+    // Handle conflicts if the user changes settings while a piece is selected
+    if (!clickMovesEnabled) {
+        selectedSquare = null;
+        removeHighlights();
+    }
+}
+// Bind the moving preference function to the moveving preference radiobuttons
+clickMovingPreference.addEventListener('change', function() { setMovingPreference(true, false); });
+dragMovingPreference.addEventListener('change', function() { setMovingPreference(false, true); });
+bothMovingPreference.addEventListener('change', function() { setMovingPreference(true, true); });
+
 // ==========  Confirm choice (yes/no) modal  ==========
 var yesNoModal = document.getElementById('yesNoModal');
 var yesBtn = document.getElementById('yesBtn');
@@ -623,6 +679,15 @@ function openYesNoModal() {
 function closeYesNoModal() {
     yesNoModal.style.display = 'none';
     viewingModal = false;
+}
+
+// Determine whether the YesNo modal is open
+function yesNoModalStatus() {
+    var status = false;
+    if (yesNoModal.style.display == 'flex') {
+        status = true;
+    }
+    return status;
 }
 
 // Resign only if the user clicks Yes to confirm their choice
@@ -685,7 +750,10 @@ forwardBtn.addEventListener('click', navigateForward);
 
 // Ordered by probable frequency of use by chess players
 document.addEventListener('keydown', function(event) {
+
+// Debugging
 console.log(event.key);
+
     switch (event.key) {
         // Navigate back
         case 'ArrowLeft':
@@ -699,15 +767,27 @@ console.log(event.key);
             navigateForward();
             break;
 
-        // Black
+   
         case 'b':
         case 'B':
+            // Play as Black
+            if (!optionsModalStatus) {
             blackBtn = document.querySelector('input[name="color"][value="black"]');
             blackBtn.checked = true;
             blackBtn.focus();
+
+            // Moving preference - click
+            } else {
+                var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+                if (optionsModalStatus) {
+                    setMovingPreference(true, true);
+                    bothMovingPreference.checked = true;
+                    bothMovingPreference.focus();
+                }
+            }
             break;
 
-        // White
+        // Play as White
         case 'w':
         case 'W':
             whiteBtn = document.querySelector('input[name="color"][value="white"]');
@@ -729,7 +809,7 @@ console.log(event.key);
                 resignGame();
             // Rematch - gameOverModal
             } else {
-                if (viewingModal){
+                if (gameOverModalStatus){
                     startNewGame();
                 }
             }
@@ -737,14 +817,11 @@ console.log(event.key);
 
         // Close all modals
         case 'Escape':
-            var gamerOverModal = document.getElementById('gameOverModal');
-            var optionsModal = document.getElementById('optionsModal');
-            var yesNoModal = document.getElementById('yesNoModal');
-            if (gamerOverModal.style.display == 'flex') {
+            if (gameOverModalStatus()) {
                 closeGameOverModal();
-            } else if (optionsModal.style.display == 'flex') {
+            } else if (optionsModalStatus()) {
                 closeOptionsModal();
-            } else if (yesNoModal.style.display == 'flex') {
+            } else if (yesNoModalStatus()) {
                 cancelResignation();
             }
             break;
@@ -755,10 +832,21 @@ console.log(event.key);
             openOptionsModal();
             break;
 
-        // Difficulty
         case 'd':
         case 'D':
-            document.getElementById('difficulty').focus();
+            // Difficulty
+            if (!optionsModalStatus()) {
+                document.getElementById('difficulty').focus();
+
+            // Moving preference - click
+            } else {
+                var dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+                if (optionsModalStatus()) {
+                    setMovingPreference(false, true);
+                    dragMovingPreference.checked = true;
+                    dragMovingPreference.focus();
+                }
+            }
             break;
 
         // Play as (White/Black)
@@ -780,8 +868,7 @@ console.log(event.key);
         // Confirm resignation
         case 'y':
         case 'Y':
-            var yesNoModal = document.getElementById('yesNoModal');
-            if (yesNoModal.style.display == 'flex') {
+            if (yesNoModalStatus()) {
                 confirmResignation();
             }
             break;
@@ -789,8 +876,7 @@ console.log(event.key);
         // Cancel resignation
         case 'n':
         case 'N':
-            var yesNoModal = document.getElementById('yesNoModal');
-            if (yesNoModal.style.display == 'flex') {
+            if (yesNoModalStatus()) {
                 cancelResignation();
             }
             break;
@@ -798,12 +884,32 @@ console.log(event.key);
         // Toggle highlighting
         case 'h':
         case 'H':
-            var optionsModal = document.getElementById('optionsModal');
             var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
-            if (optionsModal.style.display == 'flex') {
+            if (optionsModalStatus()) {
                 toggleHighlights();
                 optionsModalHighlightsCheckbox.checked = highlightsEnabled;
             }
             break;
+
+        // Moving preference
+        case 'm':
+        case 'M':
+            var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+            if (optionsModalStatus()) {
+                bothMovingPreference.focus();
+            }
+            break;
+
+        // Moving preference - click
+        case 'c':
+        case 'C':
+            var clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+            if (optionsModalStatus()) {
+                setMovingPreference(true, false);
+                clickMovingPreference.checked = true;
+                clickMovingPreference.focus();
+            }
+            break;
     }
+
 });
