@@ -1,7 +1,7 @@
 /*
  File:      main.js
  Author:    Maxximillion Thomas
- Purpose:   Activate the dormant js chessboard-1.0.0.js file
+ Purpose:   Give interactive capabilities to the web page elements (main menu, chess board, in-game options, etc.)
  Date:      December 9, 2025
  */
 
@@ -43,7 +43,7 @@ var engine = new Worker('js/stockfish.js');
 var engineTimeout = null;
 
 /* 
-    Configure engine starting settings 
+Configure engine starting settings 
     The engine has different difficulty levels (0-20), start at the easiest
     Search depth determines how many moves ahead the engine will consider
 */
@@ -338,8 +338,6 @@ function onSquareClick(event) {
 }
 // Bind the square click function to board clicks 
 $('#myBoard').on('click', '.square-55d63', onSquareClick);
-
-
 
 // =============================
 // ==  Game  ===================
@@ -744,6 +742,56 @@ function navigateForward() {
 // Bind the forward function to the forward button
 forwardBtn.addEventListener('click', navigateForward);
 
+// ==========  Undo move  ==========
+var undoBtn = document.getElementById('undoBtn');
+
+// Undo the previous move
+function undoMove() {
+    /*
+    Logic checks
+        1. Game must be in progress
+        2. TEMPORARY ------ viewingIndex guard - delete after control row transfer
+        3. One move must have beeen completed by BOTH sides before the player may undo a move
+        4. It must be the players turn
+    */
+    // 1
+    if (!gameActive) {
+        return;
+    }
+    // 2
+    if (viewingIndex !== fenHistory.length - 1) {
+        return;
+    }
+    // 3
+    if (game.history().length < 2) {
+        return;
+    }
+    // 4
+    if (game.turn() !== playerColor.charAt(0)) {
+        return;
+    }
+
+    // Undo the players previous move and the engines response
+    game.undo();
+    game.undo();
+
+    // Remove the previous moves from the move history
+    fenHistory.pop();
+    fenHistory.pop();
+
+    // TEMPORARY ------ viewingIndex guard - delete after control row transfer
+    viewingIndex = fenHistory.length - 1;
+
+    // Update the visual board
+    board.position(game.fen());
+
+    // Reset visual helpers
+    updateStatus();
+    removeHighlights();
+    selectedSquare = null;
+}
+undoBtn.addEventListener('click', undoMove);
+
 // =============================
 // ==  Hotkeys  ================
 // =============================
@@ -766,20 +814,19 @@ console.log(event.key);
         case 'End':
             navigateForward();
             break;
-
    
         case 'b':
         case 'B':
             // Play as Black
-            if (!optionsModalStatus) {
-            blackBtn = document.querySelector('input[name="color"][value="black"]');
-            blackBtn.checked = true;
-            blackBtn.focus();
+            if (!optionsModalStatus()) {
+                blackBtn = document.querySelector('input[name="color"][value="black"]'); 
+                blackBtn.checked = true;
+                blackBtn.focus();
 
             // Moving preference - click
             } else {
                 var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
-                if (optionsModalStatus) {
+                if (optionsModalStatus()) {
                     setMovingPreference(true, true);
                     bothMovingPreference.checked = true;
                     bothMovingPreference.focus();
@@ -909,6 +956,11 @@ console.log(event.key);
                 clickMovingPreference.checked = true;
                 clickMovingPreference.focus();
             }
+            break;
+
+        case 'u':
+        case 'U':
+            undoMove();
             break;
     }
 

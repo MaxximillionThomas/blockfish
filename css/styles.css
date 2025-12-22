@@ -1,15 +1,31 @@
 /*
  File:      style.css
  Author:    Maxximillion Thomas
- Purpose:   Add styles for the chess practice interface
+ Purpose:   Style the chess page elements
  Date:      December 12, 2025
  */
+
+/* =============================
+// ==  Body  ===================
+// ============================= */
+body {
+    background-color:rgb(240, 242, 254);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* =============================
+// ==  Title  ===================
+// ============================= */
+.title {
+    margin-left: 50px;
+}
 
 /* =============================
 // ==  Menu  ===================
 // ============================= */
 
 .menu-container {
+    margin-left: 50px;
     margin-bottom: 20px;
 }
 
@@ -232,7 +248,7 @@ input:checked + .slider:before {
     width: 440px;
     height: 150px; 
     overflow-y: auto;
-    border: 1px solid #ccc;
+    border: 2px solid #ccc;
     background-color: #e0e0e0;
 }
 
@@ -258,6 +274,13 @@ input:checked + .slider:before {
     padding: 4px 8px;
     border-bottom: 1px solid #eee;
     font-size: 14px;
+}
+
+/* Content centering */
+.move-table th,
+.move-table td {
+    text-align: center;
+    vertical-align: middle; 
 }
 
 /* Zebra striping for readability */

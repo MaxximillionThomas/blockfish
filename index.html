@@ -20,15 +20,14 @@
 </head>
 
 <!-- Body -->
-
 <body>
-    <h1>You vs Stockfish</h1>
+    <h1 class="title">Chess Practice</h1>
 
     <!-- Menu options -->
     <div id="menuContainer" class="menu-container">
         <!-- Bot difficulty drop-down selection -->
         <div class="menu-item">
-            <label for="difficulty">Select Bot Difficulty: </label>
+            <label for="difficulty">Select Bot <u>D</u>ifficulty: </label>
             <label data-tooltip="Change the difficulty of the chess engine">
                 <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)">
                     <option value="0" selected>1 - Easiest</option>
@@ -42,35 +41,46 @@
 
         <!-- Player color radio buttons -->
         <div class="menu-item">
-            <label for="color">Play as: </label>
-            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive">White</label>
-            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive">Black</label>
+            <label for="color"><u>P</u>lay as: </label>
+            <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive"><u>W</u>hite</label>
+            <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive"><u>B</u>lack</label>
         </div>
 
         <!-- Start new game button -->
         <div>
             <button id="startBtn" class="menu-item-interactive"
-                data-tooltip="Start a new game using the current settings">Start New Game</button>
+                data-tooltip="Start a new game using the current settings"><u>S</u>tart New Game</button>
         </div>
 
     </div>
 
     <!-- Game container -->
     <div id="gameContainer" class="game-container">
+
+        <!-- Turn status & options -->
         <div class="header-row">
-            <!-- Turn status (your move / bot move) -->
             <div id="status" class="status">Turn: Loading...</div>
-            <!-- Options -->
-            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options">☰</button>
+            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options (O key)">☰</button>
         </div>
 
         <!-- Chess board-->
         <div id="myBoard" class="board"></div>
 
-        <!-- Back / Forward -->
+        
+        <!-- Midgame: undo & hint
         <div class="control-row">
-            <button id="backBtn" class="control-btn" data-tooltip="View the previous move">⟵</button>
-            <button id="forwardBtn" class="control-btn" data-tooltip="View the next move">⟶</button>
+            <button id="hintBtn" class="control-btn" data-tooltip="View the best move (H key)">*lightbulb*</button>
+        </div> -->
+
+        <!-- Postgame: previous move navigation -->
+        <div class="control-row">
+            <!-- Move to midgame control row after testing -->
+            <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">*C ⟵*</button>
+            
+            <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">*S ⟵*</button>
+            <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">⟵</button>
+            <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">⟶</button>
+            <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">*S ⟶*</button>
         </div>
     </div>
 
@@ -92,26 +102,26 @@
     <!-- Game over modal -->
     <div id="gameOverModal" class="modal">
         <div class="modal-content">
-            <span id="gameOverModalCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
+            <span id="gameOverModalCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)">&times;</span>
 
             <h2 id="gameResult">Game Over</h2>
             <p id="gameReason">Checkmate</p>
 
             <button id="gameOverModalRematchBtn" class="rematch-btn"
-                data-tooltip="Rematch with the same settings">Rematch</button>
+                data-tooltip="Rematch with the same settings"><u>R</u>ematch</button>
         </div>
     </div>
 
     <!-- Options modal -->
     <div id="optionsModal" class="modal">
         <div class="modal-content">
-            <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
+            <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)">&times;</span>
 
             <h2>Options</h2>
 
             <!-- Toggle move highlighting -->
             <div class="control-row">
-                <label for="moveHighlights">Highlight legal moves:</label>
+                <label for="moveHighlights"><u>H</u>ighlight legal moves:</label>
                 <label class="switch" data-tooltip="Highlight legal moves for the selected piece">
                     <input type="checkbox" id="optionsModalHighlightsCheckbox" checked>
                     <span class="slider"></span>
@@ -120,31 +130,29 @@
 
             <!-- Moving preference radio buttons -->
             <div class="control-row">
-                <label for="optionsModalMovingPreference">Moving: </label>
-                <label data-tooltip="Click to move pieces"><input type="radio" id="moveClick" name="optionsModalMovingPreference" value="click" class="menu-item-interactive">Click</label>
-                <label data-tooltip="Drag to move pieces"><input type="radio" id="moveDrag" name="optionsModalMovingPreference" value="drag" class="menu-item-interactive">Drag</label>
-                <label data-tooltip="Click or drag to move pieces"><input type="radio" id="moveBoth" name="optionsModalMovingPreference" value="both" class="menu-item-interactive" checked>Both</label>
+                <label for="optionsModalMovingPreference"><u>M</u>oving: </label>
+                <label data-tooltip="Click to move pieces"><input type="radio" id="moveClick" name="optionsModalMovingPreference" value="click" class="menu-item-interactive"><u>C</u>lick</label>
+                <label data-tooltip="Drag to move pieces"><input type="radio" id="moveDrag" name="optionsModalMovingPreference" value="drag" class="menu-item-interactive"><u>D</u>rag</label>
+                <label data-tooltip="Click or drag to move pieces"><input type="radio" id="moveBoth" name="optionsModalMovingPreference" value="both" class="menu-item-interactive" checked><u>B</u>oth</label>
             </div>
 
             <!-- Resign -->
-            <button id="optionsModalResignBtn" class="resign-btn" data-tooltip="Resign the match for a loss">RESIGN</button>
+            <button id="optionsModalResignBtn" class="resign-btn" data-tooltip="Resign the match for a loss"><u>R</u>ESIGN</button>
         </div>
     </div>
 
     <!-- Yes/No modal -->
     <div id="yesNoModal" class="modal">
         <div class="modal-content">
-            <span id="yesNoCloseBtn" class="close-btn" data-tooltip="Close this window">&times;</span>
+            <span id="yesNoCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)">&times;</span>
 
             <h2>Confirm</h2>
             <p id="confirmText">Confirm resignation?</p>
 
-            <button id="yesBtn" class="yes-btn" data-tooltip="Confirm choice">Yes</button>
-            <button id="noBtn" class="no-btn" data-tooltip="Cancel choice">No</button>
+            <button id="yesBtn" class="yes-btn" data-tooltip="Confirm choice"><u>Y</u>es</button>
+            <button id="noBtn" class="no-btn" data-tooltip="Cancel choice"><u>N</u>o</button>
         </div>
     </div>
-
-
 
     <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
@@ -153,5 +161,4 @@
     <script src="./js/main.js"></script>
 
 </body>
-
 </html>
