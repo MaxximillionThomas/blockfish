@@ -344,22 +344,24 @@ $('#myBoard').on('click', '.square-55d63', onSquareClick);
 // =============================
 
 // ==========  Functions  ==========
-// Toggle on/off game controls based on game state
-function toggleGameControls(isPlayable) {
+// Toggle on/off game controls based on game state (false = cannot be changed mid-game)
+function toggleGameControls(outsideOfGame) {
+    // Manu options
     // Difficulty drop-down
-    document.getElementById('difficulty').disabled = !isPlayable;
-    
+    document.getElementById('difficulty').disabled = !outsideOfGame;
     // Color radio buttons
     colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
-        radio.disabled = !isPlayable;
+        radio.disabled = !outsideOfGame;
     });
-
     // Start new game button
-    document.getElementById('startBtn').disabled = !isPlayable;
+    document.getElementById('startBtn').disabled = !outsideOfGame;
 
+    // In-game options
     // Options button
-    document.getElementById('optionsBtn').enabled = isPlayable;
+    document.getElementById('optionsBtn').disabled = outsideOfGame;
+    // Navigation buttons
+    toggleNavigation();
 }
 
 // Update the game status text
@@ -415,6 +417,9 @@ function updateStatus() {
 
     // Update the move history div
     updateMoveHistory();
+
+    // Toggle navigation controls as appropriate
+    toggleNavigation();
 
     // Unlock game controls if the game is over
     if (!gameActive) {
@@ -721,12 +726,19 @@ yesNoCloseBtn.addEventListener('click', cancelResignation);
 // ==========  Back / forward navigation  ==========
 var backBtn = document.getElementById('backBtn');
 var forwardBtn = document.getElementById('forwardBtn');
+var firstBtn = document.getElementById('firstBtn');
+var lastBtn = document.getElementById('lastBtn');
+backBtn.disabled = true;
+forwardBtn.disabled = true;
+firstBtn.disabled = true;
+lastBtn.disabled = true;
 
 // Navigate back to the previous position
 function navigateBack() {
     if (viewingIndex > 0) {
         viewingIndex--;
         board.position(fenHistory[viewingIndex]);
+        toggleNavigation();
     }   
 }
 // Bind the back function to the back button
@@ -737,10 +749,64 @@ function navigateForward() {
     if (viewingIndex < fenHistory.length - 1) {
         viewingIndex++;
         board.position(fenHistory[viewingIndex]);
+        toggleNavigation();
     }   
 }
 // Bind the forward function to the forward button
 forwardBtn.addEventListener('click', navigateForward);
+
+// Navigate back to the first move
+function navigateFirst() {
+    viewingIndex = 0;
+    board.position(fenHistory[viewingIndex]);
+    toggleNavigation();
+}
+// Bind the first function to the first button
+firstBtn.addEventListener('click', navigateFirst);
+
+// Navigate back to the last move
+function navigateLast() {
+    viewingIndex = fenHistory.length - 1;
+    board.position(fenHistory[viewingIndex]);
+    toggleNavigation();
+}
+// Bind the last function to the last button
+lastBtn.addEventListener('click', navigateLast);
+
+// Enable / disable move viewing navigation
+function toggleNavigation() {
+    // Must be in-game to toggle navigation
+    if (gameActive === false) {
+        backBtn.disabled = true;
+        forwardBtn.disabled = true;
+        firstBtn.disabled = true;
+        lastBtn.disabled = true;
+        return
+    }
+
+    // Backward navigation
+    if (viewingIndex === 0) {
+        backBtn.disabled = true;
+        firstBtn.disabled = true;
+    } else {
+        backBtn.disabled = false;
+        firstBtn.disabled = false;
+    }
+
+    // Forward navigation
+    if (viewingIndex === fenHistory.length - 1) {
+        forwardBtn.disabled = true;
+        lastBtn.disabled = true;
+    } else {
+        forwardBtn.disabled = false;
+        lastBtn.disabled = false;
+    }
+
+
+    console.log('viewingIndex: ' + viewingIndex);
+    console.log('fenHistory.length: ' + fenHistory.length);
+
+}
 
 // ==========  Undo move  ==========
 var undoBtn = document.getElementById('undoBtn');
