@@ -63,10 +63,17 @@
             <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options (O key)">☰</button>
         </div>
 
-        <!-- Chess board-->
-        <div id="myBoard" class="board"></div>
+        <!-- Evaluation bar & chess board   -->
+        <div class="eval-board-container">
+            <!-- Evaluation bar -->
+            <div class="eval-container">
+                <div id="evalBar" class="eval-bar-fill"></div>
+            </div>
 
-        
+            <!-- Chess board -->
+            <div id="myBoard" class="board"></div>
+        </div>
+
         <!-- Midgame: undo & hint
         <div class="control-row">
             <button id="hintBtn" class="control-btn" data-tooltip="View the best move (H key)">*lightbulb*</button>

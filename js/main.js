@@ -77,6 +77,54 @@ function setEngineDifficulty(newDifficulty) {
 
 // Set up responses from the engine
 engine.onmessage = function(event) {
+    var line = event.data;
+    /*
+    Check for 'score' for use in updating the game evaluation
+        1.  Determine the score based on the event data
+        2.  Adjust the score to be relative to Whites position
+        3.  Update the evaluation bar
+    */
+    if (line.startsWith('info') && line.includes('score')) {
+        var score = 0;
+
+        // 1-A: Mate score
+        if (line.includes('mate')) {
+            // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
+            // Focus mate score (example output = ['3', 'nodes', ... ] )
+            var mateString = line.split('mate ')[1];
+            // Isolate mate score (example output = '3')
+            var mateIn = parseInt(mateString.split(' ')[0]);
+
+            // Set the score to a large number to max out the evaluation bar visual effect
+            if (mateIn > 0) {
+                score = 10000;
+            } else {
+                score = -10000;
+            }
+        }
+
+        // 1-B: Centipawn score
+        else if (line.includes('cp')) {
+            var centipawnString = line.split('score cp ')[1];
+            score = parseInt(centipawnString.split(' ')[0])
+        }
+
+        // 2: Adjust the score
+        if (game.turn() === 'b') {
+            score = -score;
+        }
+
+        // 3. Update the evaluation bar
+        if (score > 5000) {
+            updateEvalBar(100)
+        } else if (score < -5000) {
+            updateEvalBar(0);
+        } else {
+            var winChance = calculateEvaluation(score);
+            updateEvalBar(winChance);
+        }
+    }
+
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
@@ -248,6 +296,24 @@ function clearLastMoveHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-played');
 }
 
+function updateHistoryHighlights() {
+    // Don't show highlights on the first move
+    if (viewingIndex === 0) {
+        clearLastMoveHighlights();
+        return;
+    }
+
+    // Retrieve the full move history (verbose allows for to/from details)
+    var history = game.history({verbose: true});
+
+    // Highlight the last move's details
+    var moveIndex = viewingIndex - 1
+    if (history[moveIndex]) {
+        var move = history[moveIndex];
+        highlightLastMove(move.from, move.to);
+    }
+}
+
 // Highlight the last move played
 function highlightLastMove(source, target) {
     clearLastMoveHighlights();
@@ -345,21 +411,21 @@ $('#myBoard').on('click', '.square-55d63', onSquareClick);
 
 // ==========  Functions  ==========
 // Toggle on/off game controls based on game state (false = cannot be changed mid-game)
-function toggleGameControls(outsideOfGame) {
+function toggleGameControls(gameInProgress) {
     // Manu options
     // Difficulty drop-down
-    document.getElementById('difficulty').disabled = !outsideOfGame;
+    document.getElementById('difficulty').disabled = gameInProgress;
     // Color radio buttons
     colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
-        radio.disabled = !outsideOfGame;
+        radio.disabled = gameInProgress;
     });
     // Start new game button
-    document.getElementById('startBtn').disabled = !outsideOfGame;
+    document.getElementById('startBtn').disabled = gameInProgress;
 
     // In-game options
     // Options button
-    document.getElementById('optionsBtn').disabled = outsideOfGame;
+    document.getElementById('optionsBtn').disabled = !gameInProgress;
     // Navigation buttons
     toggleNavigation();
 }
@@ -386,6 +452,7 @@ function updateStatus() {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
         openGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
+        removeHighlights();
 
     // Draw
     } else if (game.in_draw()) {
@@ -423,7 +490,7 @@ function updateStatus() {
 
     // Unlock game controls if the game is over
     if (!gameActive) {
-        toggleGameControls(true);
+        toggleGameControls(false);
     }
 }
 
@@ -517,7 +584,7 @@ function startNewGame() {
 
     // Disable mid-game control changes
     gameActive = true;
-    toggleGameControls(false);
+    toggleGameControls(true);
 
     // Clear queued move and reset game logic
     window.clearTimeout(engineTimeout);
@@ -701,7 +768,7 @@ function confirmResignation() {
     // Close the confirmation modal and end the game
     closeYesNoModal();
     gameActive = false;
-    toggleGameControls(true);
+    toggleGameControls(false);
 
     // Update the move status and show the game over modal
     var moveColor = 'White';
@@ -737,8 +804,7 @@ lastBtn.disabled = true;
 function navigateBack() {
     if (viewingIndex > 0) {
         viewingIndex--;
-        board.position(fenHistory[viewingIndex]);
-        toggleNavigation();
+        navigationUpdate();
     }   
 }
 // Bind the back function to the back button
@@ -748,8 +814,7 @@ backBtn.addEventListener('click', navigateBack);
 function navigateForward() {
     if (viewingIndex < fenHistory.length - 1) {
         viewingIndex++;
-        board.position(fenHistory[viewingIndex]);
-        toggleNavigation();
+        navigationUpdate();
     }   
 }
 // Bind the forward function to the forward button
@@ -758,8 +823,7 @@ forwardBtn.addEventListener('click', navigateForward);
 // Navigate back to the first move
 function navigateFirst() {
     viewingIndex = 0;
-    board.position(fenHistory[viewingIndex]);
-    toggleNavigation();
+    navigationUpdate();
 }
 // Bind the first function to the first button
 firstBtn.addEventListener('click', navigateFirst);
@@ -767,23 +831,13 @@ firstBtn.addEventListener('click', navigateFirst);
 // Navigate back to the last move
 function navigateLast() {
     viewingIndex = fenHistory.length - 1;
-    board.position(fenHistory[viewingIndex]);
-    toggleNavigation();
+    navigationUpdate();
 }
 // Bind the last function to the last button
 lastBtn.addEventListener('click', navigateLast);
 
 // Enable / disable move viewing navigation
 function toggleNavigation() {
-    // Must be in-game to toggle navigation
-    if (gameActive === false) {
-        backBtn.disabled = true;
-        forwardBtn.disabled = true;
-        firstBtn.disabled = true;
-        lastBtn.disabled = true;
-        return
-    }
-
     // Backward navigation
     if (viewingIndex === 0) {
         backBtn.disabled = true;
@@ -801,11 +855,13 @@ function toggleNavigation() {
         forwardBtn.disabled = false;
         lastBtn.disabled = false;
     }
+}
 
-
-    console.log('viewingIndex: ' + viewingIndex);
-    console.log('fenHistory.length: ' + fenHistory.length);
-
+// Update the board and move highlights per the viewing index 
+function navigationUpdate() {
+    board.position(fenHistory[viewingIndex]);
+    updateHistoryHighlights();
+    toggleNavigation();
 }
 
 // ==========  Undo move  ==========
@@ -855,8 +911,44 @@ function undoMove() {
     updateStatus();
     removeHighlights();
     selectedSquare = null;
+    updateHistoryHighlights();
 }
 undoBtn.addEventListener('click', undoMove);
+
+// =============================
+// ==  Evaluation bar  =========
+// =============================
+
+// Update evaluation bar
+function updateEvalBar(percentage) {
+    var barHeight = percentage;
+
+    // Keep the bar within a fixed range for visual clarity
+    if (barHeight > 95) {
+        barHeight = 95;
+    }
+    if (barHeight < 5) {
+        barHeight = 5;
+    }
+
+    // Set the html bar height according to the new value
+    document.getElementById('evalBar').style.height = barHeight + '%';
+}
+
+/* 
+Calculate the game evaluation (who is winning)
+    Stockfish tracks score by centipawns
+    100 centipawn = 1 pawn
+    Evaluation is always relative to Whites position 
+*/
+function calculateEvaluation(centipawnAdvantage) {
+    // 0.004 is the commonly used sensitivity factor for game evaluation in chess programs
+    var sensitivityFactor = 0.004;
+    // Calculate the chance of winning based on the centipawn advantage
+    var winChance = 1 / (1 + Math.pow(10, -sensitivityFactor * centipawnAdvantage))
+    // Return the chance of White winning as a percentage
+    return winChance * 100;
+} 
 
 // =============================
 // ==  Hotkeys  ================
@@ -1029,5 +1121,4 @@ console.log(event.key);
             undoMove();
             break;
     }
-
 });

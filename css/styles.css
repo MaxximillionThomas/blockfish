@@ -199,6 +199,39 @@ input:checked + .slider:before {
 // ==  Board  ==================
 // ============================= */
 
+/* Container for holding the evaluation bar and the chess board */
+.eval-board-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* The background of the bar (Blacks advantage) */
+.eval-container {
+    width: 20px;
+    height: 380px; 
+    margin-left: 15px;
+    margin-right: -10px;
+    background-color: #404040; 
+    border: 1px solid #777;
+    position: relative; 
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+/* The white fill (White's advantage) */
+.eval-bar-fill {
+    width: 100%;
+    /* Default to neutral */
+    height: 50%; 
+    background-color: #ffffff;
+    position: absolute;
+    /* Grows upwards from the bottom */
+    bottom: 0; 
+    /* Smooth movement */
+    transition: height 0.5s ease-in-out;
+}
+
 .board {
     margin-left: auto;
     margin-right: auto;
@@ -407,7 +440,7 @@ input:checked + .slider:before {
 }
 
 /* =============================
-// ==  Pieces moves  ===========
+// ==  Piece moves  ============
 // ============================= */
 
 /* Selected square / last played move - Yellow */
@@ -419,5 +452,6 @@ input:checked + .slider:before {
 .highlight-move {
     box-shadow: inset 0 0 0 1000px rgba(0, 255, 0, 0.3);
 }
+
 
 
