@@ -87,23 +87,6 @@ body {
 // ==  Options modal  ==========
 // ============================= */
 
-/* Resign */
-.resign-btn {
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
-    color: #cc0000;      
-    font-weight: bold;   
-    border: 2px solid #cc0000;
-    background-color: white;
-    cursor: pointer;
-}
-
-.resign-btn:hover {
-    background-color: #ffe6e6;
-    color: #a00;
-}
-
 /* Toggle on/off options */
 .switch {
   position: relative;
@@ -232,6 +215,30 @@ input:checked + .slider:before {
     transition: height 0.5s ease-in-out;
 }
 
+/* Score displayed in the evaluation bar */
+.eval-score {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    /* Sits above the white/grey bars */
+    z-index: 2; 
+    pointer-events: none; /* needed? */
+}
+
+/* White is winning */
+.eval-score-white {
+    bottom: 5px;
+    color: #333;
+}
+
+/* Black is winning */
+.eval-score-black {
+    top: 5px;
+    color: #fff;
+}
+
 .board {
     margin-left: auto;
     margin-right: auto;
@@ -265,6 +272,15 @@ input:checked + .slider:before {
 
 .control-btn:hover {
     color: #555;
+}
+
+/* =============================
+// ==  Navigation controls  ====
+// ============================= */
+
+.navigation-controls {
+    display: inline-flex;                 
+    gap: 6px; 
 }
 
 /* =============================

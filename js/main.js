@@ -23,14 +23,17 @@ var viewingModal = false;
 var highlightsEnabled = true;
 var clickMovesEnabled = true;
 var dragMovesEnabled = true;
+var evalBarEnabled = true;
 
 // =============================
 // ==  Navigation  =============
 // =============================
 
-// Store FEN history for back/forward navigation
+// Store move data history for back/forward navigation
 var fenHistory = [];
 var viewingIndex = 0;
+var evalHistory = [0];
+var currentEval = 0;
 
 // =============================
 // ==  Engine  =================
@@ -82,7 +85,7 @@ engine.onmessage = function(event) {
     Check for 'score' for use in updating the game evaluation
         1.  Determine the score based on the event data
         2.  Adjust the score to be relative to Whites position
-        3.  Update the evaluation bar
+        3.  Update the evaluation bar and evaluation score history
     */
     if (line.startsWith('info') && line.includes('score')) {
         var score = 0;
@@ -114,15 +117,13 @@ engine.onmessage = function(event) {
             score = -score;
         }
 
-        // 3. Update the evaluation bar
-        if (score > 5000) {
-            updateEvalBar(100)
-        } else if (score < -5000) {
-            updateEvalBar(0);
-        } else {
-            var winChance = calculateEvaluation(score);
-            updateEvalBar(winChance);
+        // 3: Update the eval bar and score history
+        currentEval = score;
+        if (evalHistory.length > 0) {
+            // Overwrite the last entry (message runs multiple times before the engine makes the best move)
+            evalHistory[evalHistory.length - 1] = currentEval;
         }
+        updateEvalBar(currentEval);
     }
 
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
@@ -410,7 +411,7 @@ $('#myBoard').on('click', '.square-55d63', onSquareClick);
 // =============================
 
 // ==========  Functions  ==========
-// Toggle on/off game controls based on game state (false = cannot be changed mid-game)
+// Toggle on/off game controls based on game state (true = cannot be changed mid-game)
 function toggleGameControls(gameInProgress) {
     // Manu options
     // Difficulty drop-down
@@ -426,8 +427,12 @@ function toggleGameControls(gameInProgress) {
     // In-game options
     // Options button
     document.getElementById('optionsBtn').disabled = !gameInProgress;
+    // Undo button
+    document.getElementById('undoBtn').disabled = !gameInProgress;
     // Navigation buttons
     toggleNavigation();
+    // Resign button
+    document.getElementById('resignBtn').disabled = !gameInProgress;
 }
 
 // Update the game status text
@@ -540,8 +545,11 @@ function updateMoveHistory() {
 
 // Save the current board position to the FEN history
 function fenSnapshot() {
+    // Save board state
     fenHistory.push(game.fen());
     viewingIndex = fenHistory.length - 1;
+    // Save evaluation state
+    evalHistory.push(currentEval);
 }
 
 // ==========  Board setup  ==========
@@ -575,9 +583,12 @@ function startNewGame() {
     // Hide the game over modal if visible
     closeGameOverModal();
 
-    // Initialize list of FEN position history
+    // Initialize list of FEN position & evaluation score history
     fenHistory = [game.fen()];
     viewingIndex = 0;
+    evalHistory = [0];
+    currentEval = 0;
+    updateEvalBar(currentEval);
 
     // Reveal the move history panel
     document.getElementById('pgn').style.display = 'block';
@@ -645,7 +656,7 @@ gameOverModalCloseBtn.addEventListener('click', closeGameOverModal);
 // Determine whether the game over modal is open
 function gameOverModalStatus() {
     var status = false;
-    if (gameOverModal.style.display == 'flex') {
+    if (gameOverModal.style.display === 'flex') {
         status = true;
     }
     return status;
@@ -655,11 +666,13 @@ function gameOverModalStatus() {
 var optionsModal = document.getElementById('optionsModal');
 var optionsModalBtn = document.getElementById('optionsBtn');
 var optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
-var optionsModalResignBtn = document.getElementById('optionsModalResignBtn');
 var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
 var clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
 var dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
 var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+
+// Not usable until game start
+optionsModalBtn.disabled = true;
 
 // Open the options modal
 function openOptionsModal() {
@@ -698,21 +711,6 @@ function optionsModalStatus() {
     }
     return status;
 }
-
-// Resign the game for a loss
-function resignGame() {
-    // Only allow shortcut key while the options modal is open
-    if (!viewingModal) {
-        return;
-    }
-
-    // Close the options modal and open the confirm choice modal
-    closeOptionsModal();
-    yesNoModal.style.display = 'flex';
-
-}
-// Bind the resign function to the resign button
-optionsModalResignBtn.addEventListener('click', resignGame);
 
 // Bind the move-highlighting toggle function to the highlights checkbox
 optionsModalHighlightsCheckbox.addEventListener('click', toggleHighlights)
@@ -784,7 +782,6 @@ yesBtn.addEventListener('click', confirmResignation);
 // Cancel resignation and return the user to the options meodal
 function cancelResignation() {
     closeYesNoModal();
-    openOptionsModal();
 }
 // Bind the resignation cancellation function to the cancel buttons
 noBtn.addEventListener('click', cancelResignation);
@@ -842,9 +839,11 @@ function toggleNavigation() {
     if (viewingIndex === 0) {
         backBtn.disabled = true;
         firstBtn.disabled = true;
+        undoBtn.disabled = true;
     } else {
         backBtn.disabled = false;
         firstBtn.disabled = false;
+        undoBtn.disabled = false;
     }
 
     // Forward navigation
@@ -862,10 +861,19 @@ function navigationUpdate() {
     board.position(fenHistory[viewingIndex]);
     updateHistoryHighlights();
     toggleNavigation();
+    updateEvalBar(evalHistory[viewingIndex]);
+    if (viewingIndex != fenHistory.length - 1) {
+        $('#status').html("Viewing a previous move...");
+    } else {
+        updateStatus();
+    }
 }
 
 // ==========  Undo move  ==========
 var undoBtn = document.getElementById('undoBtn');
+
+// Not usable until game start
+undoBtn.disabled = true;
 
 // Undo the previous move
 function undoMove() {
@@ -900,6 +908,15 @@ function undoMove() {
     // Remove the previous moves from the move history
     fenHistory.pop();
     fenHistory.pop();
+    evalHistory.pop();
+    evalHistory.pop();
+
+    // Reset the evaluation score the the last valid value
+    if (evalHistory.length > 0) {
+        currentEval = evalHistory[evalHistory.length - 1];
+    } else {
+        currentEval = 0;
+    }
 
     // TEMPORARY ------ viewingIndex guard - delete after control row transfer
     viewingIndex = fenHistory.length - 1;
@@ -912,27 +929,83 @@ function undoMove() {
     removeHighlights();
     selectedSquare = null;
     updateHistoryHighlights();
+    updateEvalBar(currentEval);
 }
 undoBtn.addEventListener('click', undoMove);
+
+// ==========  Resign game  ==========
+var resignBtn = document.getElementById('resignBtn');
+resignBtn.disabled = true;
+
+// Resign the game for a loss
+function resignGame() {
+    yesNoModal.style.display = 'flex';
+
+}
+// Bind the resign function to the resign button
+resignBtn.addEventListener('click', resignGame);
 
 // =============================
 // ==  Evaluation bar  =========
 // =============================
+evalContainer = document.getElementById('evalContainer');
+optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+
+// Show/hide the evaluation bar 
+function toggleEvalBar() {
+    evalBarEnabled = !evalBarEnabled;
+    if (evalBarEnabled) {
+        evalContainer.style.display = "";
+    } else {
+        evalContainer.style.display = "none";
+    }
+}
+// Bind the eval toggle function to the eval toggle button
+optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
+
 
 // Update evaluation bar
-function updateEvalBar(percentage) {
-    var barHeight = percentage;
+function updateEvalBar(centipawns) {
+    evalBar = document.getElementById('evalBar');
+    evalScore = document.getElementById('evalScore');
+    var mateIncoming = Math.abs(centipawns) > 5000 ? true : false
+    var barHeight = calculateEvaluation(centipawns);
 
     // Keep the bar within a fixed range for visual clarity
     if (barHeight > 95) {
         barHeight = 95;
+        if (mateIncoming) {
+            barHeight = 100;
+        }
     }
     if (barHeight < 5) {
         barHeight = 5;
+            if (mateIncoming) {
+                barHeight = 0;
+        }
     }
 
     // Set the html bar height according to the new value
-    document.getElementById('evalBar').style.height = barHeight + '%';
+    evalBar.style.height = barHeight + '%';
+
+    // Give meaning to the centipawn advantage
+    evalScoreText = '';
+    if (mateIncoming) {
+        evalScoreText = 'M';
+    } else {
+        var pawnAdvantage = Math.abs(centipawns) / 100;
+        // Formated to one decimal place
+        evalScoreText = pawnAdvantage.toFixed(1);
+    }
+
+    // Reset eval bar labels
+    evalScore.classList.remove('eval-score-white', 'eval-score-black');
+    evalScore.innerText = evalScoreText;
+    if (centipawns >= 0) {
+        evalScore.classList.add('eval-score-white');
+    } else {
+        evalScore.classList.add('eval-score-black');
+    }
 }
 
 /* 
@@ -1009,12 +1082,12 @@ console.log(event.key);
         // Resign or rematch
         case 'r':
         case 'R':
-            // Resign - optionsModal
+            // Resign 
             if (gameActive) {
                 resignGame();
-            // Rematch - gameOverModal
+            // Rematch
             } else {
-                if (gameOverModalStatus){
+                if (gameOverModalStatus()) {
                     startNewGame();
                 }
             }
@@ -1054,22 +1127,6 @@ console.log(event.key);
             }
             break;
 
-        // Play as (White/Black)
-        case 'p':
-        case 'P':
-            var whiteBtn = document.querySelector('input[name="color"][value="white"]');
-            var blackBtn = document.querySelector('input[name="color"][value="black"]');
-            // White selected -> Switch to Black
-            if (whiteBtn.checked) {
-                blackBtn.checked = true;
-                blackBtn.focus(); 
-            // Black selected -> Switch to White
-            } else {
-                whiteBtn.checked = true;
-                whiteBtn.focus();
-            }
-            break;
-
         // Confirm resignation
         case 'y':
         case 'Y':
@@ -1096,15 +1153,6 @@ console.log(event.key);
             }
             break;
 
-        // Moving preference
-        case 'm':
-        case 'M':
-            var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
-            if (optionsModalStatus()) {
-                bothMovingPreference.focus();
-            }
-            break;
-
         // Moving preference - click
         case 'c':
         case 'C':
@@ -1119,6 +1167,15 @@ console.log(event.key);
         case 'u':
         case 'U':
             undoMove();
+            break;
+
+        case 'e':
+        case 'E':
+            var optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+            if (optionsModalStatus()) {
+                toggleEvalBar();
+                optionsModalEvalBarCheckbox.checked = evalBarEnabled;
+            }
             break;
     }
 });

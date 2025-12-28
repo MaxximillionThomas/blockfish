@@ -41,7 +41,7 @@
 
         <!-- Player color radio buttons -->
         <div class="menu-item">
-            <label for="color"><u>P</u>lay as: </label>
+            <label for="color">Play as: </label>
             <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive"><u>W</u>hite</label>
             <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive"><u>B</u>lack</label>
         </div>
@@ -66,8 +66,9 @@
         <!-- Evaluation bar & chess board   -->
         <div class="eval-board-container">
             <!-- Evaluation bar -->
-            <div class="eval-container">
+            <div class="eval-container" id="evalContainer">
                 <div id="evalBar" class="eval-bar-fill"></div>
+                <div id="evalScore" class="eval-score">0.0</div>
             </div>
 
             <!-- Chess board -->
@@ -81,13 +82,19 @@
 
         <!-- Postgame: previous move navigation -->
         <div class="control-row">
-            <!-- Move to midgame control row after testing -->
-            <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">*C ⟵*</button>
+            <!-- Undo - Move to midgame control row after testing -->
+            <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">&#8630;</button>
             
-            <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">*S ⟵*</button>
-            <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">⟵</button>
-            <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">⟶</button>
-            <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">*S ⟶*</button>
+            <!-- Navigation controls -->
+             <div class="navigation-controls">
+                <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">&laquo;</button>
+                <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">&lsaquo;</button>
+                <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">&rsaquo;</button>
+                <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">&raquo;</button>
+            </div>
+
+            <!-- Resign - Move to midgame control row after testing -->
+            <button id="resignBtn" class="control-btn" data-tooltip="Resign the match for a loss (R key)">&#9872;</button>
         </div>
     </div>
 
@@ -128,23 +135,30 @@
 
             <!-- Toggle move highlighting -->
             <div class="control-row">
-                <label for="moveHighlights"><u>H</u>ighlight legal moves:</label>
+                <label><u>H</u>ighlight legal moves:</label>
                 <label class="switch" data-tooltip="Highlight legal moves for the selected piece">
                     <input type="checkbox" id="optionsModalHighlightsCheckbox" checked>
                     <span class="slider"></span>
                 </label>
             </div>
 
+            <!-- Toggle evaluation bar -->
+            <div class="control-row">
+                <label><u>E</u>valuation bar:</label>
+                <label class="switch" data-tooltip="Show evaluation score bar">
+                    <input type="checkbox" id="optionsModalEvalBarCheckbox" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <!-- Moving preference radio buttons -->
             <div class="control-row">
-                <label for="optionsModalMovingPreference"><u>M</u>oving: </label>
+                <label for="optionsModalMovingPreference">Moving: </label>
                 <label data-tooltip="Click to move pieces"><input type="radio" id="moveClick" name="optionsModalMovingPreference" value="click" class="menu-item-interactive"><u>C</u>lick</label>
                 <label data-tooltip="Drag to move pieces"><input type="radio" id="moveDrag" name="optionsModalMovingPreference" value="drag" class="menu-item-interactive"><u>D</u>rag</label>
                 <label data-tooltip="Click or drag to move pieces"><input type="radio" id="moveBoth" name="optionsModalMovingPreference" value="both" class="menu-item-interactive" checked><u>B</u>oth</label>
             </div>
 
-            <!-- Resign -->
-            <button id="optionsModalResignBtn" class="resign-btn" data-tooltip="Resign the match for a loss"><u>R</u>ESIGN</button>
         </div>
     </div>
 
