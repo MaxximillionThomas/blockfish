@@ -6,7 +6,7 @@
  */
 
 // =============================
-// ==  Logic  ==================
+// ==  Fundamentals  ===========
 // =============================
 
 // Establish the logic and rules of the chess game
@@ -16,24 +16,27 @@ var gameActive = false;
 var selectedSquare = null;
 var squareClass = 'square-55d63';
 
-// =============================
-// ==  Accessibility  ==========
-// =============================
+// Establish accessibility trackers
 var viewingModal = false;
 var highlightsEnabled = true;
 var clickMovesEnabled = true;
 var dragMovesEnabled = true;
 var evalBarEnabled = true;
 
-// =============================
-// ==  Navigation  =============
-// =============================
-
 // Store move data history for back/forward navigation
 var fenHistory = [];
 var viewingIndex = 0;
 var evalHistory = [0];
 var currentEval = 0;
+
+// Store sounds used for game actions
+var sounds = {
+    start: new Audio('audio/game-start.mp3'),
+    move: new Audio('audio/move-self.mp3'),
+    capture: new Audio('audio/capture.mp3'),
+    check: new Audio('audio/move-check.mp3'),
+    end: new Audio('audio/game-end.mp3')
+};
 
 // =============================
 // ==  Engine  =================
@@ -139,12 +142,15 @@ engine.onmessage = function(event) {
         var promotion = bestMove.substring(4, 5);
 
         // Use the shared game logic for the engine's move
-        game.move({
+        var engineMove = game.move({
             from: source,
             to: target,
             // Queen promotion as empty string protection
             promotion: promotion || 'q'
         });
+
+        // Play a sound after the engine has played its move
+        playMoveSound(engineMove);
 
         // Highlight the engine's move for player awareness
         removeHighlights();
@@ -246,6 +252,9 @@ function onDrop (source, target) {
         removeHighlights();
         return 'snapback';
     }
+
+    // Play a sound after the move has passed validation
+    playMoveSound(move);
 
     // Clear click-moving state after a successful move
     selectedSquare = null;
@@ -393,6 +402,7 @@ function handleSquareClickInteractions(square) {
         fenSnapshot();
         updateStatus();
         selectedSquare = null;
+        playMoveSound(move);
         window.setTimeout(makeEngineMove, 250);
     }
 }
@@ -610,6 +620,9 @@ function startNewGame() {
     updateStatus();
     engine.postMessage('ucinewgame');
 
+    // Play the start game sound
+    playSound('start');
+
     // Focus the center of the board
     document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -767,6 +780,7 @@ function confirmResignation() {
     closeYesNoModal();
     gameActive = false;
     toggleGameControls(false);
+    playSound('end');
 
     // Update the move status and show the game over modal
     var moveColor = 'White';
@@ -1021,7 +1035,48 @@ function calculateEvaluation(centipawnAdvantage) {
     var winChance = 1 / (1 + Math.pow(10, -sensitivityFactor * centipawnAdvantage))
     // Return the chance of White winning as a percentage
     return winChance * 100;
-} 
+}   
+
+// =============================
+// ==  Sounds  =================
+// =============================
+
+// Helper to play sounds safely
+function playSound(name) {
+    // Reset time to 0 so we can play the same sound rapidly (e.g., fast moves)
+    var sound = sounds[name];
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(function(error) {
+            // Catches errors if the browser blocks autoplay (common before user interaction)
+            console.log('Audio playback blocked:', error);
+        });
+    }
+}
+
+// Play a sound when a piece is successfully moved
+function playMoveSound(moveResult) {
+    // Game-ending move
+    if (game.game_over()) {
+        playSound('end');
+        return;
+    }
+
+    // A check was delivered
+    if (game.in_check()) {
+        playSound('check');
+        return;
+    }
+
+    // A piece was captured
+    if (moveResult.captured) {
+        playSound('capture');
+        return;
+    }
+
+    // Default: normal move
+    playSound('move');
+}
 
 // =============================
 // ==  Hotkeys  ================
