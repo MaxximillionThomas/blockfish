@@ -474,5 +474,55 @@ input:checked + .slider:before {
     box-shadow: inset 0 0 3px 3px rgba(255, 0, 0, 0.7);
 }
 
+/* =============================
+// ==  Animation  =============
+// ============================= */
+
+/* Wiggle animation for piece interaction */
+@keyframes wiggle {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(-2deg); }
+    75% { transform: rotate(2deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* 1. Hover wiggle */
+.board-white .square-55d63 img[data-piece^='w']:hover,
+.board-black .square-55d63 img[data-piece^='b']:hover {
+    animation: wiggle .3s ease 2;
+    cursor: grab; 
+}
+
+/* 2. Drag enlargement */
+.chessboard-moving-piece {
+    transform: scale(1.2) !important;
+    animation: none !important; 
+    z-index: 9999 !important; 
+    /* Ensure the sizing doesn't get beaten by other global rules */
+    max-width: none !important; 
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;   
+}
+
+/* 3. Drop wiggle */
+.drop-wiggle {
+    animation: wiggle .3s ease 1;
+}
+
+/* Stop animation the moment a piece is clicked */
+.square-55d63.highlight-source img {
+    animation: none !important; 
+    transform: none !important; 
+}
+
+/* Allow pieces to hang off the edge of the board */
+#myBoard, 
+div[class^="board-"] { 
+    overflow: visible !important;
+}
+
+
+
 
 

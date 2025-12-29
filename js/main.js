@@ -256,8 +256,10 @@ function onDrop (source, target) {
     // Clear click-moving state after a successful move
     selectedSquare = null;
 
-    // Play a sound after the move has passed validation
+    // Play a sound and wiggle the piece after the move has passed validation
     playMoveSound(move);
+    wiggleAnimation(target, 50);
+
 
     // Highlight the players move for awareness
     removeHighlights();
@@ -307,6 +309,7 @@ function clearLastMoveHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-played');
 }
 
+// Update the highlights during previous move navigation
 function updateHistoryHighlights() {
     // Don't show highlights on the first move
     if (viewingIndex === 0) {
@@ -404,6 +407,7 @@ function handleSquareClickInteractions(square) {
         updateStatus();
         selectedSquare = null;
         playMoveSound(move);
+        wiggleAnimation(square, 250);
         if (game.in_check() === false) removeHighlights();
         window.setTimeout(makeEngineMove, 250);
     }
@@ -417,6 +421,29 @@ function onSquareClick(event) {
 }
 // Bind the square click function to board clicks 
 $('#myBoard').on('click', '.square-55d63', onSquareClick);
+
+// Wiggle animation on piece hover/drop
+function wiggleAnimation(target, delay) {
+    // If no delay explicitly provided, wait 50ms for the board to finish snapping/redrawing
+    var waitTime = delay || 50;
+
+    window.setTimeout(function() {
+        // Find the square and piece image
+        var $targetSquare = $('#myBoard .square-' + target);
+        var $targetImage = $targetSquare.find('img');
+
+        // Ensure the element exists (has loaded)
+        if ($targetImage.length > 0) {
+            // Apply the wiggle animation class
+            $targetImage.addClass('drop-wiggle');
+            
+            // Remove the class after the animation ends (allows for wiggling on next interaction)
+            window.setTimeout(function() {
+                $targetImage.removeClass('drop-wiggle');
+            }, 400);
+        }
+    }, waitTime);   
+}
 
 // =============================
 // ==  Game  ===================
@@ -589,15 +616,14 @@ function highlightKingCheck(color) {
     $('#myBoard .square-' + kingSquare).addClass('in-check');
 }
 
-
 // ==========  Board setup  ==========
 // Create configurations for the chessboard before it is created
 var config = {
-  draggable: true,
-  position: 'start',
-  onDragStart: onDragStart,
-  onDrop: onDrop,
-  onSnapEnd: onSnapEnd
+    draggable: true,
+    position: 'start',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
 };
 
 // Initialize the chessboard (div with id 'myBoard') 
@@ -621,6 +647,10 @@ function startNewGame() {
     // Hide the game over modal if visible
     closeGameOverModal();
 
+    // Clear queued move and reset game logic
+    window.clearTimeout(engineTimeout);
+    game.reset();
+
     // Initialize list of FEN position & evaluation score history
     fenHistory = [game.fen()];
     viewingIndex = 0;
@@ -635,13 +665,14 @@ function startNewGame() {
     gameActive = true;
     toggleGameControls(true);
 
-    // Clear queued move and reset game logic
-    window.clearTimeout(engineTimeout);
-    game.reset();
-
     // Set the board orientation based on player color
     playerColor = document.querySelector('input[name="color"]:checked').value;
     board.orientation(playerColor);
+
+    // Replace CSS class for interactivity with only the players color pieces
+    var boardElement = document.getElementById('myBoard');
+    boardElement.classList.remove('board-white', 'board-black');
+    boardElement.classList.add('board-' + playerColor);
 
     // Reset the board 
     board.start();
@@ -881,11 +912,9 @@ function toggleNavigation() {
     if (viewingIndex === 0) {
         backBtn.disabled = true;
         firstBtn.disabled = true;
-        undoBtn.disabled = true;
     } else {
         backBtn.disabled = false;
         firstBtn.disabled = false;
-        undoBtn.disabled = false;
     }
 
     // Forward navigation
@@ -895,6 +924,13 @@ function toggleNavigation() {
     } else {
         forwardBtn.disabled = false;
         lastBtn.disabled = false;
+    }
+
+    // Undo functionality
+    if (viewingIndex === 0 || gameActive === false) {
+        undoBtn.disabled = true;
+    } else {
+        undoBtn.disabled = false;
     }
 }
 
@@ -1041,15 +1077,20 @@ function updateEvalBar(centipawns) {
     // Keep the bar within a fixed range for visual clarity
     if (barHeight > 95) {
         barHeight = 95;
-        if (mateIncoming) {
-            barHeight = 100;
-        }
+        if (mateIncoming) barHeight = 100;
     }
     if (barHeight < 5) {
         barHeight = 5;
-            if (mateIncoming) {
-                barHeight = 0;
-        }
+        if (mateIncoming) barHeight = 0;        
+    }
+
+    // Orientation (BAR) - flip if playing as Black
+    if (playerColor === 'black') {
+        evalBar.style.top = '0';
+        evalBar.style.bottom = 'auto';
+    } else {
+        evalBar.style.top = 'auto';
+        evalBar.style.bottom = '0';
     }
 
     // Set the html bar height according to the new value
@@ -1068,10 +1109,33 @@ function updateEvalBar(centipawns) {
     // Reset eval bar labels
     evalScore.classList.remove('eval-score-white', 'eval-score-black');
     evalScore.innerText = evalScoreText;
+
     if (centipawns >= 0) {
+        // White is winning
         evalScore.classList.add('eval-score-white');
+
+        // Orientation (TEXT) - flip if playing as Black
+        if (playerColor === 'black') {
+            evalScore.style.top = '5px';
+            evalScore.style.bottom = 'auto';
+        } else {
+            evalScore.style.bottom = '5px';
+            evalScore.style.top = 'auto';
+        }
+
     } else {
+        // Black is winning
         evalScore.classList.add('eval-score-black');
+
+        // Orientation (TEXT - flip if playing as Black
+        if (playerColor === 'black') {
+            evalScore.style.bottom = '5px';
+            evalScore.style.top = 'auto';
+        } else {
+            evalScore.style.top = '5px';
+            evalScore.style.bottom = 'auto';
+        }
+
     }
 }
 
@@ -1313,11 +1377,13 @@ console.log(event.key);
             }
             break;
 
+        // Undo previous move
         case 'u':
         case 'U':
             undoMove();
             break;
 
+        // Toggle on/off evaluation score bar
         case 'e':
         case 'E':
             var optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
@@ -1325,6 +1391,18 @@ console.log(event.key);
                 toggleEvalBar();
                 optionsModalEvalBarCheckbox.checked = evalBarEnabled;
             }
+            break;
+
+        // Navigate to the first move 
+        case 'f':
+        case 'F':
+            navigateFirst();
+            break;
+
+        // Navigate to the last move
+        case 'l':
+        case 'L':
+            navigateLast();
             break;
     }
 });
