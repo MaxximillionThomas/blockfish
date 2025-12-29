@@ -253,11 +253,11 @@ function onDrop (source, target) {
         return 'snapback';
     }
 
-    // Play a sound after the move has passed validation
-    playMoveSound(move);
-
     // Clear click-moving state after a successful move
     selectedSquare = null;
+
+    // Play a sound after the move has passed validation
+    playMoveSound(move);
 
     // Highlight the players move for awareness
     removeHighlights();
@@ -299,6 +299,7 @@ function highlightMoves(square) {
 function removeHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-source');
     $('#myBoard .square-55d63').removeClass('highlight-move');
+    if (game.in_check() === false) $('#myBoard .square-55d63').removeClass('in-check');
 }
 
 // Clear the highlights of the last move played
@@ -403,6 +404,7 @@ function handleSquareClickInteractions(square) {
         updateStatus();
         selectedSquare = null;
         playMoveSound(move);
+        if (game.in_check() === false) removeHighlights();
         window.setTimeout(makeEngineMove, 250);
     }
 }
@@ -467,7 +469,7 @@ function updateStatus() {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
         openGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
-        removeHighlights();
+        highlightKingCheck();
 
     // Draw
     } else if (game.in_draw()) {
@@ -477,6 +479,7 @@ function updateStatus() {
             openGameOverModal('Draw', 'Stalemate');
         // Repetition
         } else if (game.in_threefold_repetition()) {
+            if (game.in_check()) highlightKingCheck();
             status = 'Game over. A draw by threefold repetition was reached.';
             openGameOverModal('Draw', 'Threefold Repetition');
         // Insufficient material
@@ -490,6 +493,7 @@ function updateStatus() {
     } else {
         status = moveColor + ' to move.';
         if (game.in_check()) {
+            highlightKingCheck();
             status += ' ' + moveColor + ' is in check.';
         }
     }
@@ -561,6 +565,30 @@ function fenSnapshot() {
     // Save evaluation state
     evalHistory.push(currentEval);
 }
+
+// Highlight the King when in check
+function highlightKingCheck(color) {
+    // Establish the target piece (wK or bK)
+    var kingColor = color || game.turn();
+    var kingNotation = kingColor + 'K';
+
+    // Get the board state
+    var boardSquares = board.position();
+
+    // Locate the target piece
+    for (var square in boardSquares) {
+        if (boardSquares[square] === kingNotation) {
+            var kingSquare = square;
+            // King located - stop searching
+            break;
+        }
+    }
+
+    // Apply the class
+    removeHighlights();
+    $('#myBoard .square-' + kingSquare).addClass('in-check');
+}
+
 
 // ==========  Board setup  ==========
 // Create configurations for the chessboard before it is created
@@ -834,7 +862,7 @@ forwardBtn.addEventListener('click', navigateForward);
 // Navigate back to the first move
 function navigateFirst() {
     viewingIndex = 0;
-    navigationUpdate();
+    navigationUpdate();        
 }
 // Bind the first function to the first button
 firstBtn.addEventListener('click', navigateFirst);
@@ -872,15 +900,39 @@ function toggleNavigation() {
 
 // Update the board and move highlights per the viewing index 
 function navigationUpdate() {
+    // Update the board view
     board.position(fenHistory[viewingIndex]);
+
+    // Update previous move highlights
     updateHistoryHighlights();
-    toggleNavigation();
+
+    // Update in-check highlights
+    $('#myBoard .square-55d63').removeClass('in-check');
+    var move = (viewingIndex != 0) ? getHistoricalMove() : null;
+    if (move != null) {
+        // Check for check (+) or checkmate (#)
+        if (move.san.includes('+') || move.san.includes('#')) {
+            // The previous move (opposite color) put THIS color in check
+            colorInCheck = (move.color === 'w') ? 'b' : 'w';
+            highlightKingCheck(colorInCheck);
+        }
+    }
+
+    // Play audio based on the type of move being viewed    
+    playHistoricalMoveSound();
+    
+    // Update the evaluation score bar
     updateEvalBar(evalHistory[viewingIndex]);
+
+    // Update the move status text
     if (viewingIndex != fenHistory.length - 1) {
         $('#status').html("Viewing a previous move...");
     } else {
         updateStatus();
     }
+
+    // Disable/enable navigation buttons as necessary
+    toggleNavigation();
 }
 
 // ==========  Undo move  ==========
@@ -938,12 +990,13 @@ function undoMove() {
     // Update the visual board
     board.position(game.fen());
 
-    // Reset visual helpers
+    // Reset visual helpers and trigger audio 
     updateStatus();
     removeHighlights();
     selectedSquare = null;
     updateHistoryHighlights();
     updateEvalBar(currentEval);
+    playHistoricalMoveSound();
 }
 undoBtn.addEventListener('click', undoMove);
 
@@ -1077,6 +1130,47 @@ function playMoveSound(moveResult) {
     // Default: normal move
     playSound('move');
 }
+
+// Retrieve the details of the previously played move
+function getHistoricalMove() {
+    var history = game.history({verbose: true});
+    var moveIndex = viewingIndex - 1;
+    var move = history[moveIndex];
+    return move;
+}
+
+// Play sounds during move navigation, based on historical move data
+function playHistoricalMoveSound() {
+    if (viewingIndex === 0) {
+        playSound('move');
+        return;
+    }
+
+    // Determine the kind of move played
+    var move = getHistoricalMove();
+
+    // Checkmate delivered
+    if (move.san.includes('#')) {
+        playSound('end');
+        return;
+    }
+
+    // Check delivered
+    if (move.san.includes('+')) {
+        playSound('check');
+        return;
+    }
+
+    // Piece captured
+    if (move.san.includes('x')) {
+        playSound('capture');
+        return;
+    }
+
+    // Default: normal move
+    playSound('move');
+}
+
 
 // =============================
 // ==  Hotkeys  ================
