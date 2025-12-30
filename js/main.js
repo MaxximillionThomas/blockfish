@@ -35,7 +35,8 @@ var sounds = {
     move: new Audio('audio/move-self.mp3'),
     capture: new Audio('audio/capture.mp3'),
     check: new Audio('audio/move-check.mp3'),
-    end: new Audio('audio/game-end.mp3')
+    end: new Audio('audio/game-end.mp3'),
+    hover: new Audio('audio/hover.mp3')
 };
 
 // =============================
@@ -445,6 +446,19 @@ function wiggleAnimation(target, delay) {
     }, waitTime);   
 }
 
+// Play a sound when hovering over a piece of the players color
+function playHoverSound() {
+    // Retrieve the piece data
+    var piece = $(this).attr('data-piece');
+    
+    // Play the audio if the piece belongs to the player
+    if (piece.charAt(0) === playerColor.charAt(0)) {
+        playSound('hover');
+    }
+}
+// Bind the hover sound function to piece-hovering
+$('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
+
 // =============================
 // ==  Game  ===================
 // =============================
@@ -614,6 +628,9 @@ function highlightKingCheck(color) {
     // Apply the class
     removeHighlights();
     $('#myBoard .square-' + kingSquare).addClass('in-check');
+
+    // Apply a wiggle animation
+    wiggleAnimation(kingSquare, 250);
 }
 
 // ==========  Board setup  ==========
@@ -952,6 +969,9 @@ function navigationUpdate() {
             colorInCheck = (move.color === 'w') ? 'b' : 'w';
             highlightKingCheck(colorInCheck);
         }
+
+        // Apply the wiggle animation
+        wiggleAnimation(move.to, 250);
     }
 
     // Play audio based on the type of move being viewed    
@@ -1160,14 +1180,21 @@ function calculateEvaluation(centipawnAdvantage) {
 
 // Helper to play sounds safely
 function playSound(name) {
-    // Reset time to 0 so we can play the same sound rapidly (e.g., fast moves)
     var sound = sounds[name];
-    if (sound) {
+
+    if (sound != null) {
+        // Reset the sound to the beginning
         sound.currentTime = 0;
-        sound.play().catch(function(error) {
-            // Catches errors if the browser blocks autoplay (common before user interaction)
-            console.log('Audio playback blocked:', error);
-        });
+
+        // Play the sound
+        var soundSample = sound.play();
+
+        // Handle browser interupptions
+        if (soundSample !== undefined) {
+            soundSample.catch(function(error) {
+                console.log('Sound interrupted', error);
+            });
+        }
     }
 }
 

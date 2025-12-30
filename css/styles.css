@@ -493,21 +493,18 @@ input:checked + .slider:before {
     cursor: grab; 
 }
 
-/* 2. Drag enlargement */
-.chessboard-moving-piece {
-    transform: scale(1.2) !important;
-    animation: none !important; 
-    z-index: 9999 !important; 
-    /* Ensure the sizing doesn't get beaten by other global rules */
-    max-width: none !important; 
-    max-height: none !important;
-    width: auto !important;
-    height: auto !important;   
-}
-
-/* 3. Drop wiggle */
+/* 2. Drop wiggle */
 .drop-wiggle {
     animation: wiggle .3s ease 1;
+}
+
+/* 3. Drag enlargement */
+body > img[class^="piece-"] {
+    width: 56px !important;
+    height: 56px !important;
+    margin-left: -4.5px;
+    margin-top: -4.5px;
+    z-index: 9999;
 }
 
 /* Stop animation the moment a piece is clicked */
@@ -521,6 +518,10 @@ input:checked + .slider:before {
 div[class^="board-"] { 
     overflow: visible !important;
 }
+
+
+
+
 
 
 
