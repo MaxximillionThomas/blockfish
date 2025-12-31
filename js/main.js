@@ -40,99 +40,97 @@ var sounds = {
 };
 
 // =============================
-// ==  Engine  =================
+// ==  Bot engine  =============
 // =============================
 
 // Initialize the Stockfish chess engine
-var engine = new Worker('js/stockfish.js');
+var botEngine = new Worker('js/stockfish.js');
 
 // Engine timeout will be later used for resetting the engine
-var engineTimeout = null;
+var botEngineTimeout = null;
 
 /* 
 Configure engine starting settings 
     The engine has different difficulty levels (0-20), start at the easiest
     Search depth determines how many moves ahead the engine will consider
 */
-var difficulty = 0;
-var searchDepth = 1;
-engine.postMessage('uci'); 
-engine.postMessage('setoption name Skill Level value ' + difficulty); 
+var botDifficulty = 0;
+var botSearchDepth = 1;
+botEngine.postMessage('uci'); 
+botEngine.postMessage('setoption name Skill Level value ' + botDifficulty); 
 
 // Allow setting of engine difficulty
-function setEngineDifficulty(newDifficulty) {    
+function setBotEngineDifficulty(newDifficulty) {    
 
     // Set the difficulty
-    difficulty = newDifficulty;
-    engine.postMessage('setoption name Skill Level value ' + difficulty)
+    botDifficulty = newDifficulty;
+    botEngine.postMessage('setoption name Skill Level value ' + botDifficulty)
 
     // Set the search depth level in accordance with difficulty
     // Easiest + Easy
-    if (difficulty < 5) {
-        searchDepth = 1;
+    if (botDifficulty < 5) {
+        botSearchDepth = 1;
     // Medium
-    } else if (difficulty < 10) {
-        searchDepth = 3;       
+    } else if (botDifficulty < 10) {
+        botSearchDepth = 3;       
     // Hard
-    } else if (difficulty < 15) {
-        searchDepth = 7;  
+    } else if (botDifficulty < 15) {
+        botSearchDepth = 7;  
     // Impossible
     } else {
-        searchDepth = 10;      
+        botSearchDepth = 10;      
     }
 }
 
 // Set up responses from the engine
-engine.onmessage = function(event) {
+botEngine.onmessage = function(event) {
     // == Evaluation bar ===========
-    // Only update eval bar on engine moves, not when requesting a best-move hint
-    if (!gettingHint) {
-        var line = event.data;
-        /*
-        Check for 'score' for use in updating the game evaluation
-            1.  Determine the score based on the event data
-            2.  Adjust the score to be relative to Whites position
-            3.  Update the evaluation bar and evaluation score history
-        */
-        if (line.startsWith('info') && line.includes('score')) {
-            var score = 0;
+    var line = event.data;
+    /*
+    Check for 'score' for use in updating the game evaluation
+        1.  Determine the score based on the event data
+        2.  Adjust the score to be relative to Whites position
+        3.  Update the evaluation bar and evaluation score history
+    */
+    if (line.startsWith('info') && line.includes('score')) {
+        var score = 0;
 
-            // 1-A: Mate score
-            if (line.includes('mate')) {
-                // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
-                // Focus mate score (example output = ['3', 'nodes', ... ] )
-                var mateString = line.split('mate ')[1];
-                // Isolate mate score (example output = '3')
-                var mateIn = parseInt(mateString.split(' ')[0]);
+        // 1-A: Mate score
+        if (line.includes('mate')) {
+            // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
+            // Focus mate score (example output = ['3', 'nodes', ... ] )
+            var mateString = line.split('mate ')[1];
+            // Isolate mate score (example output = '3')
+            var mateIn = parseInt(mateString.split(' ')[0]);
 
-                // Set the score to a large number to max out the evaluation bar visual effect
-                if (mateIn > 0) {
-                    score = 10000;
-                } else {
-                    score = -10000;
-                }
+            // Set the score to a large number to max out the evaluation bar visual effect
+            if (mateIn > 0) {
+                score = 10000;
+            } else {
+                score = -10000;
             }
-
-            // 1-B: Centipawn score
-            else if (line.includes('cp')) {
-                var centipawnString = line.split('score cp ')[1];
-                score = parseInt(centipawnString.split(' ')[0])
-            }
-
-            // 2: Adjust the score
-            if (game.turn() === 'b') {
-                score = -score;
-            }
-
-            // 3: Update the eval bar and score history
-            currentEval = score;
-            if (evalHistory.length > 0) {
-                // Overwrite the last entry (message runs multiple times before the engine makes the best move)
-                evalHistory[evalHistory.length - 1] = currentEval;
-            }
-            updateEvalBar(currentEval);
         }
+
+        // 1-B: Centipawn score
+        else if (line.includes('cp')) {
+            var centipawnString = line.split('score cp ')[1];
+            score = parseInt(centipawnString.split(' ')[0])
+        }
+
+        // 2: Adjust the score
+        if (game.turn() === 'b') {
+            score = -score;
+        }
+
+        // 3: Update the eval bar and score history
+        currentEval = score;
+        if (evalHistory.length > 0) {
+            // Overwrite the last entry (message runs multiple times before the engine makes the best move)
+            evalHistory[evalHistory.length - 1] = currentEval;
+        }
+        updateEvalBar(currentEval);
     }
+    
 
     // == Best move ===========
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
@@ -146,44 +144,6 @@ engine.onmessage = function(event) {
         var target = bestMove.substring(2, 4);
         // 4th index is blank unless there is a promotion (ex: 'e7e8q' means pawn promotes to queen)
         var promotion = bestMove.substring(4, 5);
-
-        // If brought to this function by hint request, highlight the best move without EXECUTING it
-        if (gettingHint) {
-            // Check possible moves for the player
-            var possibleMoves = game.moves({verbose: true});
-            var moveIsLegal = false;
-
-            // Determine whether the move calculated by the engine is legal for the PLAYER
-            for (var i = 0; i < possibleMoves.length; i++) {
-                // Check the array one move at a time
-                var currentMove = possibleMoves[i]; 
-
-                // Clause 1: Same starting square?
-                var sameStart = (currentMove.from === source);
-
-                // Clause 2: Same ending square?
-                var sameEnd = (currentMove.to === target);
-
-                // If both clauses were successful, stop iterating (legal move found)
-                if (sameStart && sameEnd) {
-                    moveIsLegal = true;
-                    break; 
-                }
-            }
-
-            if (moveIsLegal) {
-                // Highlight hint squares only if the move is legal
-                highlightHint(source, target);
-                gettingHint = false;
-            } else {
-                // Refeed the board positioning due to previous best-move (opposing side) still in reading
-                engine.postMessage('position fen ' + game.fen());
-                engine.postMessage('go depth 10');
-            }
-
-            // Done ONLY if a legal move was received (no recursion)
-            return;
-        }
 
         // Use the shared game logic for the engine's move
         var engineMove = game.move({
@@ -216,10 +176,38 @@ function makeEngineMove() {
         return;
     }
     // Send the current game position to the engine
-    engine.postMessage('position fen ' + game.fen());
+    botEngine.postMessage('position fen ' + game.fen());
     // Search for the best move to a certain depth
-    engine.postMessage('go depth ' + searchDepth);
+    botEngine.postMessage('go depth ' + botSearchDepth);
 }
+
+// =============================
+// ==  Hint engine  =============
+// =============================
+
+// Set up an engine specifically for generating hints (same process as bot engine)
+var hintEngine = new Worker('js/stockfish.js');
+var hintDifficulty = 20;
+var hintSearchDepth = 10;
+hintEngine.postMessage('uci'); 
+hintEngine.postMessage('setoption name Skill Level value ' + hintDifficulty); 
+
+// Set up responses from the engine
+hintEngine.onmessage = function(event) {
+    // Engine produces many messages - we only care about 'bestmove' messages for decision making
+    if (event.data.startsWith('bestmove')) {
+        // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
+        var bestMove = event.data.split(' ')[1];
+
+        // Convert the bestmove into a format the chess.js library understands
+        // 1st index is starting point, 2nd index is "ending" point (0,2 means 0-1). 
+        var source = bestMove.substring(0, 2);
+        var target = bestMove.substring(2, 4);
+
+        // Highlight the hint and 
+        highlightHint(source, target);
+    }
+};
 
 // =============================
 // ==  Player  =================
@@ -528,6 +516,8 @@ function toggleGameControls(gameInProgress) {
     document.getElementById('undoBtn').disabled = !gameInProgress;
     // Navigation buttons
     toggleNavigation();
+    // Hint button
+    document.getElementById('hintBtn').disabled = !gameInProgress;
     // Resign button
     document.getElementById('resignBtn').disabled = !gameInProgress;
 }
@@ -709,7 +699,7 @@ function startNewGame() {
     closeGameOverModal();
 
     // Clear queued move and reset game logic
-    window.clearTimeout(engineTimeout);
+    window.clearTimeout(botEngineTimeout);
     game.reset();
 
     // Initialize list of FEN position & evaluation score history
@@ -738,7 +728,7 @@ function startNewGame() {
     // Reset the board 
     board.start();
     updateStatus();
-    engine.postMessage('ucinewgame');
+    botEngine.postMessage('ucinewgame');
 
     // Play the start game sound
     playSound('start');
@@ -888,7 +878,7 @@ function yesNoModalStatus() {
 // Resign only if the user clicks Yes to confirm their choice
 function confirmResignation() {
     // Clear any queued engine moves
-    window.clearTimeout(engineTimeout);
+    window.clearTimeout(botEngineTimeout);
 
     // Close the confirmation modal and end the game
     closeYesNoModal();
@@ -1096,6 +1086,7 @@ undoBtn.addEventListener('click', undoMove);
 
 // ==========  Hint (best move)  ==========
 var hintBtn = document.getElementById('hintBtn');
+hintBtn.disabled = true;
 
 // Highlight the best move when a hint is requested
 function highlightHint(source, target) {
@@ -1112,15 +1103,10 @@ function getHint() {
     // State checks (gettingHint check prevents spam)
     if (!gameActive) return;
     if (game.turn() !== playerColor.charAt(0)) return;
-    if (gettingHint) return;
 
-    // Adjust hint state for future state check
-    gettingHint = true;
-
-    // Stop the previous trailing message and request the best move from the engine
-    engine.postMessage('stop');
-    engine.postMessage('position.fen ' + game.fen());
-    engine.postMessage('go depth 10');
+    // Request the best move from the hint engine
+    hintEngine.postMessage('position fen ' + game.fen());
+    hintEngine.postMessage('go depth ' + hintSearchDepth);
 }
 // Bind the get hint function to the hint button
 hintBtn.addEventListener('click', getHint);
