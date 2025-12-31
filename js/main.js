@@ -15,9 +15,9 @@ var playerColor = 'white';
 var gameActive = false;
 var selectedSquare = null;
 var squareClass = 'square-55d63';
+var gettingHint = false;
 
-// Establish accessibility trackers
-var viewingModal = false;
+// Establish preference trackers
 var highlightsEnabled = true;
 var clickMovesEnabled = true;
 var dragMovesEnabled = true;
@@ -84,52 +84,57 @@ function setEngineDifficulty(newDifficulty) {
 
 // Set up responses from the engine
 engine.onmessage = function(event) {
-    var line = event.data;
-    /*
-    Check for 'score' for use in updating the game evaluation
-        1.  Determine the score based on the event data
-        2.  Adjust the score to be relative to Whites position
-        3.  Update the evaluation bar and evaluation score history
-    */
-    if (line.startsWith('info') && line.includes('score')) {
-        var score = 0;
+    // == Evaluation bar ===========
+    // Only update eval bar on engine moves, not when requesting a best-move hint
+    if (!gettingHint) {
+        var line = event.data;
+        /*
+        Check for 'score' for use in updating the game evaluation
+            1.  Determine the score based on the event data
+            2.  Adjust the score to be relative to Whites position
+            3.  Update the evaluation bar and evaluation score history
+        */
+        if (line.startsWith('info') && line.includes('score')) {
+            var score = 0;
 
-        // 1-A: Mate score
-        if (line.includes('mate')) {
-            // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
-            // Focus mate score (example output = ['3', 'nodes', ... ] )
-            var mateString = line.split('mate ')[1];
-            // Isolate mate score (example output = '3')
-            var mateIn = parseInt(mateString.split(' ')[0]);
+            // 1-A: Mate score
+            if (line.includes('mate')) {
+                // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
+                // Focus mate score (example output = ['3', 'nodes', ... ] )
+                var mateString = line.split('mate ')[1];
+                // Isolate mate score (example output = '3')
+                var mateIn = parseInt(mateString.split(' ')[0]);
 
-            // Set the score to a large number to max out the evaluation bar visual effect
-            if (mateIn > 0) {
-                score = 10000;
-            } else {
-                score = -10000;
+                // Set the score to a large number to max out the evaluation bar visual effect
+                if (mateIn > 0) {
+                    score = 10000;
+                } else {
+                    score = -10000;
+                }
             }
-        }
 
-        // 1-B: Centipawn score
-        else if (line.includes('cp')) {
-            var centipawnString = line.split('score cp ')[1];
-            score = parseInt(centipawnString.split(' ')[0])
-        }
+            // 1-B: Centipawn score
+            else if (line.includes('cp')) {
+                var centipawnString = line.split('score cp ')[1];
+                score = parseInt(centipawnString.split(' ')[0])
+            }
 
-        // 2: Adjust the score
-        if (game.turn() === 'b') {
-            score = -score;
-        }
+            // 2: Adjust the score
+            if (game.turn() === 'b') {
+                score = -score;
+            }
 
-        // 3: Update the eval bar and score history
-        currentEval = score;
-        if (evalHistory.length > 0) {
-            // Overwrite the last entry (message runs multiple times before the engine makes the best move)
-            evalHistory[evalHistory.length - 1] = currentEval;
+            // 3: Update the eval bar and score history
+            currentEval = score;
+            if (evalHistory.length > 0) {
+                // Overwrite the last entry (message runs multiple times before the engine makes the best move)
+                evalHistory[evalHistory.length - 1] = currentEval;
+            }
+            updateEvalBar(currentEval);
         }
-        updateEvalBar(currentEval);
     }
 
+    // == Best move ===========
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
@@ -141,6 +146,44 @@ engine.onmessage = function(event) {
         var target = bestMove.substring(2, 4);
         // 4th index is blank unless there is a promotion (ex: 'e7e8q' means pawn promotes to queen)
         var promotion = bestMove.substring(4, 5);
+
+        // If brought to this function by hint request, highlight the best move without EXECUTING it
+        if (gettingHint) {
+            // Check possible moves for the player
+            var possibleMoves = game.moves({verbose: true});
+            var moveIsLegal = false;
+
+            // Determine whether the move calculated by the engine is legal for the PLAYER
+            for (var i = 0; i < possibleMoves.length; i++) {
+                // Check the array one move at a time
+                var currentMove = possibleMoves[i]; 
+
+                // Clause 1: Same starting square?
+                var sameStart = (currentMove.from === source);
+
+                // Clause 2: Same ending square?
+                var sameEnd = (currentMove.to === target);
+
+                // If both clauses were successful, stop iterating (legal move found)
+                if (sameStart && sameEnd) {
+                    moveIsLegal = true;
+                    break; 
+                }
+            }
+
+            if (moveIsLegal) {
+                // Highlight hint squares only if the move is legal
+                highlightHint(source, target);
+                gettingHint = false;
+            } else {
+                // Refeed the board positioning due to previous best-move (opposing side) still in reading
+                engine.postMessage('position fen ' + game.fen());
+                engine.postMessage('go depth 10');
+            }
+
+            // Done ONLY if a legal move was received (no recursion)
+            return;
+        }
 
         // Use the shared game logic for the engine's move
         var engineMove = game.move({
@@ -211,7 +254,7 @@ function onDragStart (source, piece) {
     }
 
     // Clear previous click selections before handling this piece
-    if (selectedSquare != null) {
+    if (selectedSquare !== null) {
         selectedSquare = null;
 
     }
@@ -302,6 +345,7 @@ function highlightMoves(square) {
 function removeHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-source');
     $('#myBoard .square-55d63').removeClass('highlight-move');
+    $('#myBoard .square-55d63').removeClass('highlight-hint');
     if (game.in_check() === false) $('#myBoard .square-55d63').removeClass('in-check');
 }
 
@@ -508,7 +552,7 @@ function updateStatus() {
     // Checkmate
     if (game.in_checkmate()) {
         status = 'Game over. ' + moveColor + ' has been checkmated.';
-        openGameOverModal(moveColor.toLowerCase() != playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
+        openGameOverModal(moveColor.toLowerCase() !== playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
         highlightKingCheck();
 
@@ -728,7 +772,6 @@ function openGameOverModal(result, reason) {
 
     // Make the modal visible
     gameOverModal.style.display = "flex";
-    viewingModal = true;
 }
 
 // Bind the start new gamefunction to the Rematch button
@@ -737,7 +780,6 @@ gameOverModalRematchBtn.addEventListener('click', startNewGame);
 // Close the modal without starting a new game
 function closeGameOverModal() {
     gameOverModal.style.display = "none";
-    viewingModal = false;
 }
 // Bind the close function to the close button
 gameOverModalCloseBtn.addEventListener('click', closeGameOverModal);
@@ -771,7 +813,6 @@ function openOptionsModal() {
     }
 
     optionsModal.style.display = 'flex';
-    viewingModal = true;
 }
 // Bind the open options modal function to the options button
 optionsModalBtn.addEventListener('click', openOptionsModal);
@@ -779,7 +820,6 @@ optionsModalBtn.addEventListener('click', openOptionsModal);
 // Close the options modal
 function closeOptionsModal() {
     optionsModal.style.display = 'none';
-    viewingModal = false;
 }
 // Bind the close function to the close button
 optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
@@ -829,13 +869,11 @@ var yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
 // Open yesNoModal
 function openYesNoModal() {
     yesNoModal.style.display = 'flex';
-    viewingModal = true;
 }
 
 // Close yesNoModal
 function closeYesNoModal() {
     yesNoModal.style.display = 'none';
-    viewingModal = false;
 }
 
 // Determine whether the YesNo modal is open
@@ -961,8 +999,8 @@ function navigationUpdate() {
 
     // Update in-check highlights
     $('#myBoard .square-55d63').removeClass('in-check');
-    var move = (viewingIndex != 0) ? getHistoricalMove() : null;
-    if (move != null) {
+    var move = (viewingIndex !== 0) ? getHistoricalMove() : null;
+    if (move !== null) {
         // Check for check (+) or checkmate (#)
         if (move.san.includes('+') || move.san.includes('#')) {
             // The previous move (opposite color) put THIS color in check
@@ -981,7 +1019,7 @@ function navigationUpdate() {
     updateEvalBar(evalHistory[viewingIndex]);
 
     // Update the move status text
-    if (viewingIndex != fenHistory.length - 1) {
+    if (viewingIndex !== fenHistory.length - 1) {
         $('#status').html("Viewing a previous move...");
     } else {
         updateStatus();
@@ -1055,6 +1093,37 @@ function undoMove() {
     playHistoricalMoveSound();
 }
 undoBtn.addEventListener('click', undoMove);
+
+// ==========  Hint (best move)  ==========
+var hintBtn = document.getElementById('hintBtn');
+
+// Highlight the best move when a hint is requested
+function highlightHint(source, target) {
+    // Clear previous hints
+    $('#myBoard .square-55d63').removeClass('highlight-hint');
+
+    // Highlight the start and end squares of the hinted move
+    $('#myBoard .square-' + source).addClass('highlight-hint');
+    $('#myBoard .square-' + target).addClass('highlight-hint');
+}
+
+// Trigger a hint request
+function getHint() {
+    // State checks (gettingHint check prevents spam)
+    if (!gameActive) return;
+    if (game.turn() !== playerColor.charAt(0)) return;
+    if (gettingHint) return;
+
+    // Adjust hint state for future state check
+    gettingHint = true;
+
+    // Stop the previous trailing message and request the best move from the engine
+    engine.postMessage('stop');
+    engine.postMessage('position.fen ' + game.fen());
+    engine.postMessage('go depth 10');
+}
+// Bind the get hint function to the hint button
+hintBtn.addEventListener('click', getHint);
 
 // ==========  Resign game  ==========
 var resignBtn = document.getElementById('resignBtn');
@@ -1182,7 +1251,7 @@ function calculateEvaluation(centipawnAdvantage) {
 function playSound(name) {
     var sound = sounds[name];
 
-    if (sound != null) {
+    if (sound !== null) {
         // Reset the sound to the beginning
         sound.currentTime = 0;
 
@@ -1383,13 +1452,19 @@ console.log(event.key);
             }
             break;
 
-        // Toggle highlighting
+        
         case 'h':
         case 'H':
+            // Toggle highlighting
             var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
             if (optionsModalStatus()) {
                 toggleHighlights();
                 optionsModalHighlightsCheckbox.checked = highlightsEnabled;
+            }
+
+            // Request a hint
+            else {
+                getHint();
             }
             break;
 
