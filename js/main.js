@@ -16,6 +16,7 @@ var gameActive = false;
 var selectedSquare = null;
 var squareClass = 'square-55d63';
 var gettingHint = false;
+var reviewingGame = false;
 
 // Establish preference trackers
 var highlightsEnabled = true;
@@ -695,6 +696,9 @@ function startNewGame() {
         return;
     }
 
+    // Prevent game review processes
+    reviewingGame = false;
+
     // Hide the game over modal if visible
     closeGameOverModal();
 
@@ -709,8 +713,12 @@ function startNewGame() {
     currentEval = 0;
     updateEvalBar(currentEval);
 
-    // Reveal the move history panel
+    // Reveal the move history panel and control buttons
     document.getElementById('pgn').style.display = 'block';
+    document.getElementById('optionsBtn').style.display = '';
+    document.getElementById('undoBtn').style.display = '';
+    document.getElementById('hintBtn').style.display = '';
+    document.getElementById('resignBtn').style.display = '';
 
     // Disable mid-game control changes
     gameActive = true;
@@ -750,8 +758,9 @@ resetButton.addEventListener('click', startNewGame);
 var gameOverModal = document.getElementById("gameOverModal");
 var gameOverModalText = document.getElementById("gameResult");
 var gameOverModalReason = document.getElementById("gameReason");
-var gameOverModalRematchBtn = document.getElementById("gameOverModalRematchBtn");
 var gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
+var rematchBtn = document.getElementById("rematchBtn");
+var gameReviewBtn = document.getElementById("gameReviewBtn");
 
 // Show the game over modal with the result and reason 
 function openGameOverModal(result, reason) {
@@ -765,7 +774,7 @@ function openGameOverModal(result, reason) {
 }
 
 // Bind the start new gamefunction to the Rematch button
-gameOverModalRematchBtn.addEventListener('click', startNewGame);
+rematchBtn.addEventListener('click', startNewGame);
 
 // Close the modal without starting a new game
 function closeGameOverModal() {
@@ -782,6 +791,19 @@ function gameOverModalStatus() {
     }
     return status;
 }
+
+// Review the previous game
+function reviewGame() {
+    reviewingGame = true;
+    closeGameOverModal();
+    navigateFirst();
+    optionsModalBtn.style.display = 'none';
+    undoBtn.style.display = 'none';
+    hintBtn.style.display = 'none';
+    resignBtn.style.display = 'none';
+}
+// Bind the review game function to the game review button
+gameReviewBtn.addEventListener('click', reviewGame);
 
 // ==========  In-game options modal  ==========
 var optionsModal = document.getElementById('optionsModal');
@@ -1013,6 +1035,21 @@ function navigationUpdate() {
         $('#status').html("Viewing a previous move...");
     } else {
         updateStatus();
+    }
+
+    // Clear existing best move highlights
+    $('#myBoard .square-55d63').removeClass('highlight-hint');
+
+    // Highlight best moves automatically if in game review mode
+    if (reviewingGame && viewingIndex > 0) {
+        // Get the board state of the previous move
+        moveIndex = viewingIndex - 1;
+        previousFen = fenHistory[moveIndex];
+
+        // Highlight the best move for the previous board state
+        // Allows for comparision between what should have been played and what was actually played
+        hintEngine.postMessage('position fen ' + previousFen);
+        hintEngine.postMessage('go depth ' + hintSearchDepth);
     }
 
     // Disable/enable navigation buttons as necessary
@@ -1491,6 +1528,14 @@ console.log(event.key);
         case 'l':
         case 'L':
             navigateLast();
+            break;
+
+        // Review the previous game
+        case 'g':
+        case 'G':
+            if (gameOverModalStatus()) {
+                reviewGame();
+            }
             break;
     }
 });
