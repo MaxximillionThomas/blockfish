@@ -541,6 +541,13 @@ div[class^="board-"] {
     overflow: visible !important;
 }
 
+/* Base pieces */
+img[class^="piece-"] {
+    width: 40px !important;
+    height: 40px !important;
+    margin: 4px auto;
+}
+
 
 
 
