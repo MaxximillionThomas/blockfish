@@ -607,11 +607,13 @@ function updateMoveHistory() {
         var moveNumber = (i / 2) + 1;
 
         // White move is the first in the pair
-        var whiteMove = history[i];
+        var whiteIndex = i + 1;
+        var whiteMove = '<span class="move-link" data-index="' + whiteIndex + '">' + history[i] + '</span>';
 
         // Black move is the second in the pair
         if (history[i + 1]) {
-            blackMove = history[i + 1];
+            blackIndex = i + 2;
+            blackMove = '<span class="move-link" data-index="' + blackIndex + '">' + history[i + 1] + '</span>';
         // Handle pending black move
         } else {
             blackMove = '';
@@ -714,7 +716,6 @@ function startNewGame() {
     updateEvalBar(currentEval);
 
     // Reveal the move history panel and control buttons
-    document.getElementById('pgn').style.display = 'block';
     document.getElementById('optionsBtn').style.display = '';
     document.getElementById('undoBtn').style.display = '';
     document.getElementById('hintBtn').style.display = '';
@@ -801,6 +802,7 @@ function reviewGame() {
     undoBtn.style.display = 'none';
     hintBtn.style.display = 'none';
     resignBtn.style.display = 'none';
+    document.getElementById('pgn').style.display = 'block';
 }
 // Bind the review game function to the game review button
 gameReviewBtn.addEventListener('click', reviewGame);
@@ -1031,7 +1033,9 @@ function navigationUpdate() {
     updateEvalBar(evalHistory[viewingIndex]);
 
     // Update the move status text
-    if (viewingIndex !== fenHistory.length - 1) {
+    if (reviewingGame) {
+        $('#status').html("Reviewing game...");
+    } else if (viewingIndex !== fenHistory.length - 1) {
         $('#status').html("Viewing a previous move...");
     } else {
         updateStatus();
@@ -1064,26 +1068,15 @@ undoBtn.disabled = true;
 
 // Undo the previous move
 function undoMove() {
-    /*
-    Logic checks
-        1. Game must be in progress
-        2. TEMPORARY ------ viewingIndex guard - delete after control row transfer
-        3. One move must have beeen completed by BOTH sides before the player may undo a move
-        4. It must be the players turn
-    */
-    // 1
+    // 1. Game must be in progress
     if (!gameActive) {
         return;
     }
-    // 2
-    if (viewingIndex !== fenHistory.length - 1) {
-        return;
-    }
-    // 3
+    // 2. One move must have beeen completed by BOTH sides before the player may undo a move
     if (game.history().length < 2) {
         return;
     }
-    // 4
+    // 3. It must be the players turn
     if (game.turn() !== playerColor.charAt(0)) {
         return;
     }
@@ -1354,6 +1347,21 @@ function playHistoricalMoveSound() {
     playSound('move');
 }
 
+// =============================
+// ==  Move history  ===========
+// =============================
+
+// Navigate to a move by move-history click
+function moveHistoryNavigation() {
+    // Get the index of the clicked move
+    var index = $(this).attr('data-index');
+
+    // Navigate to the viewing index of the move
+    viewingIndex = parseInt(index);
+    navigationUpdate();
+}
+// Bind the move history navigation function to move history clicking
+$('#moveHistoryBody').on('click', '.move-link', moveHistoryNavigation);
 
 // =============================
 // ==  Hotkeys  ================

@@ -54,61 +54,66 @@
 
     </div>
 
-    <!-- Game container -->
-    <div id="gameContainer" class="game-container">
+    <!-- Master container -->
+    <div id="masterContainer" class="master-container">
 
-        <!-- Turn status & options -->
-        <div class="header-row">
-            <div id="status" class="status">Turn: Loading...</div>
-            <button id="optionsBtn" class="options-btn" data-tooltip="View in-game options (O key)">☰</button>
-        </div>
+        <!-- Game container -->
+        <div id="gameContainer" class="game-container">
 
-        <!-- Evaluation bar & chess board   -->
-        <div class="eval-board-container">
-            <!-- Evaluation bar -->
-            <div class="eval-container" id="evalContainer">
-                <div id="evalBar" class="eval-bar-fill"></div>
-                <div id="evalScore" class="eval-score">0.0</div>
+            <!-- Turn status & options -->
+            <div class="header-row">
+                <div id="status" class="status">Turn: Loading...</div>
+                <button id="optionsBtn" class="control-btn" data-tooltip="View in-game options (O key)">☰</button>
             </div>
 
-            <!-- Chess board -->
-            <div id="myBoard" class="board"></div>
-        </div>
+            <!-- Evaluation bar & chess board   -->
+            <div class="eval-board-container">
+                <!-- Evaluation bar -->
+                <div class="eval-container" id="evalContainer">
+                    <div id="evalBar" class="eval-bar-fill"></div>
+                    <div id="evalScore" class="eval-score">0.0</div>
+                </div>
 
-        <!-- Postgame: previous move navigation -->
-        <div class="control-row">
-            <!-- Undo previous move -->
-            <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">&#8630;</button>
-            
-            <!-- Navigation controls -->
-             <div class="navigation-controls">
-                <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">&laquo;</button>
-                <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">&lsaquo;</button>
-                <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">&rsaquo;</button>
-                <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">&raquo;</button>
+                <!-- Chess board -->
+                <div id="myBoard" class="board"></div>
             </div>
 
-            <!-- Hint (best move) -->
-            <button id="hintBtn" class="control-btn" data-tooltip="Receive a hint (H key)">☀︎</button>
+            <!-- Postgame: previous move navigation -->
+            <div class="control-row">
+                <!-- Undo previous move -->
+                <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">&#8630;</button>
+                
+                <!-- Navigation controls -->
+                <div class="navigation-controls">
+                    <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">&laquo;</button>
+                    <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">&lsaquo;</button>
+                    <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">&rsaquo;</button>
+                    <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">&raquo;</button>
+                </div>
 
-            <!-- Resign game -->
-            <button id="resignBtn" class="control-btn" data-tooltip="Resign the match for a loss (R key)">&#9872;</button>
+                <!-- Hint (best move) -->
+                <button id="hintBtn" class="control-btn" data-tooltip="Receive a hint (H key)">☀︎</button>
+
+                <!-- Resign game -->
+                <button id="resignBtn" class="control-btn" data-tooltip="Resign the match for a loss (R key)">&#9872;</button>
+            </div>
         </div>
-    </div>
 
-    <!-- Move history -->
-    <div id="pgn" class="pgn">
-        <table class="move-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>White</th>
-                    <th>Black</th>
-                </tr>
-            </thead>
-            <tbody id="moveHistoryBody">
-            </tbody>
-        </table>
+        <!-- Move history -->
+        <div id="pgn" class="pgn">
+            <table class="move-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>White</th>
+                        <th>Black</th>
+                    </tr>
+                </thead>
+                <tbody id="moveHistoryBody">
+                </tbody>
+            </table>
+        </div>
+        
     </div>
 
     <!-- Game over modal -->
