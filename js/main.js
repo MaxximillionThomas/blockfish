@@ -29,6 +29,8 @@ var fenHistory = [];
 var viewingIndex = 0;
 var evalHistory = [0];
 var currentEval = 0;
+var hintHistory = [];
+var analysisIndex = 0;
 
 // Store sounds used for game actions
 var sounds = {
@@ -200,13 +202,39 @@ hintEngine.onmessage = function(event) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
         var bestMove = event.data.split(' ')[1];
 
+        // Handle game over (no best move) 
+        if (bestMove === '(none)') {
+            if (reviewingGame) {
+                hintHistory[analysisIndex] = null;
+                analysisIndex++;
+                triggerMoveAnalysis();
+            }
+        }
+
         // Convert the bestmove into a format the chess.js library understands
         // 1st index is starting point, 2nd index is "ending" point (0,2 means 0-1). 
         var source = bestMove.substring(0, 2);
         var target = bestMove.substring(2, 4);
 
-        // Highlight the hint and 
-        highlightHint(source, target);
+        // A: Reviewing game
+        if (reviewingGame) {
+            // Store the best move into the history array
+            hintHistory[analysisIndex] = { from: source, to: target };
+
+            // If updating the hint for the viewing index that is currently in view by the user
+            if (analysisIndex === viewingIndex - 1) {
+                navigationUpdate();
+            }
+
+            // Process the next move
+            analysisIndex ++;
+            triggerMoveAnalysis();
+        }
+
+        // B: Mid-game
+        else {
+            highlightHint(source, target);
+        }
     }
 };
 
@@ -670,6 +698,29 @@ function highlightKingCheck(color) {
     wiggleAnimation(kingSquare, 250);
 }
 
+// Start a batch analysis of the completed game's move history
+function analyzeGame() {
+    // Reset variables
+    hintHistory = [];
+    analysisIndex = 0;
+
+    // Trigger the move analysis process
+    triggerMoveAnalysis();
+}
+
+// Process a move in the move history list
+function triggerMoveAnalysis() {
+    // Stop once every move has been analyzed
+    if (analysisIndex >= fenHistory.length) return;
+
+    // Retrieve the board state for the targeted turn
+    var fen = fenHistory[analysisIndex];
+
+    // Obtain the best move for the targeted turn
+    hintEngine.postMessage('position fen ' + fen);
+    hintEngine.postMessage('go depth ' + hintSearchDepth);
+}
+
 // ==========  Board setup  ==========
 // Create configurations for the chessboard before it is created
 var config = {
@@ -796,13 +847,22 @@ function gameOverModalStatus() {
 // Review the previous game
 function reviewGame() {
     reviewingGame = true;
+
+    // Reset visuals
     closeGameOverModal();
     navigateFirst();
+
+    // Hide controls
     optionsModalBtn.style.display = 'none';
     undoBtn.style.display = 'none';
     hintBtn.style.display = 'none';
     resignBtn.style.display = 'none';
+
+    // Display move history
     document.getElementById('pgn').style.display = 'block';
+
+    // Trigger batch move analysis
+    analyzeGame();
 }
 // Bind the review game function to the game review button
 gameReviewBtn.addEventListener('click', reviewGame);
@@ -995,11 +1055,18 @@ function toggleNavigation() {
         lastBtn.disabled = false;
     }
 
-    // Undo functionality
+    // Undo function
     if (viewingIndex === 0 || gameActive === false) {
         undoBtn.disabled = true;
     } else {
         undoBtn.disabled = false;
+    }
+
+    // Hint function
+    if (viewingIndex !== fenHistory.length - 1) {
+        hintBtn.disabled = true;
+    } else {
+        hintBtn.disabled = false;
     }
 }
 
@@ -1046,14 +1113,14 @@ function navigationUpdate() {
 
     // Highlight best moves automatically if in game review mode
     if (reviewingGame && viewingIndex > 0) {
-        // Get the board state of the previous move
+        // Get the index of the previous move
         moveIndex = viewingIndex - 1;
-        previousFen = fenHistory[moveIndex];
 
-        // Highlight the best move for the previous board state
-        // Allows for comparision between what should have been played and what was actually played
-        hintEngine.postMessage('position fen ' + previousFen);
-        hintEngine.postMessage('go depth ' + hintSearchDepth);
+        // Display the hint only if the analysis has finished loading
+        if (hintHistory[moveIndex]) {
+            var hint = hintHistory[moveIndex];
+            highlightHint(hint.from, hint.to);
+        }
     }
 
     // Disable/enable navigation buttons as necessary
@@ -1130,9 +1197,10 @@ function highlightHint(source, target) {
 
 // Trigger a hint request
 function getHint() {
-    // State checks (gettingHint check prevents spam)
+    // State checks
     if (!gameActive) return;
     if (game.turn() !== playerColor.charAt(0)) return;
+    if (viewingIndex !== fenHistory.length - 1) return;
 
     // Request the best move from the hint engine
     hintEngine.postMessage('position fen ' + game.fen());
@@ -1170,7 +1238,6 @@ function toggleEvalBar() {
 }
 // Bind the eval toggle function to the eval toggle button
 optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
-
 
 // Update evaluation bar
 function updateEvalBar(centipawns) {
