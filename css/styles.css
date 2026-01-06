@@ -514,6 +514,29 @@ input:checked + .slider:before {
 }
 
 /* =============================
+// ==  Judgement  ==============
+// ============================= */
+
+/* Labels for judging moves in Game Review mode */
+.judgement-label {
+    font-weight: bold;
+    font-size: 12px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: white;
+    margin-left: 8px;
+    display: inline-block;
+    text-transform: uppercase;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    vertical-align: middle;
+}
+
+.judgement-best { background-color: #0cdb02; } /* Light green */
+.judgement-good { background-color: #089f00; } /* Dark green */
+.judgement-bad { background-color: #ffa500; } /* Orange */
+.judgement-blunder { background-color: #ff0000; } /* Red */
+
+/* =============================
 // ==  Animation  =============
 // ============================= */
 

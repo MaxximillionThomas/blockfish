@@ -574,6 +574,8 @@ function updateStatus() {
         openGameOverModal(moveColor.toLowerCase() !== playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
         highlightKingCheck();
+        currentEval = (game.turn() === 'b') ? 10000 : -10000;
+        evalHistory[evalHistory.length - 1] = currentEval;
 
     // Draw
     } else if (game.in_draw()) {
@@ -592,6 +594,8 @@ function updateStatus() {
             openGameOverModal('Draw', 'Insufficient Material');
         }
         gameActive = false;
+        currentEval = 0;
+        evalHistory[evalHistory.length - 1] = currentEval;
 
     // Ongoing game
     } else {
@@ -1080,7 +1084,7 @@ function navigationUpdate() {
 
     // Update in-check highlights
     $('#myBoard .square-55d63').removeClass('in-check');
-    var move = (viewingIndex !== 0) ? getHistoricalMove() : null;
+    var move = (viewingIndex !== 0) ? getPreviousMove() : null;
     if (move !== null) {
         // Check for check (+) or checkmate (#)
         if (move.san.includes('+') || move.san.includes('#')) {
@@ -1101,7 +1105,7 @@ function navigationUpdate() {
 
     // Update the move status text
     if (reviewingGame) {
-        $('#status').html("Reviewing game...");
+        $('#status').html("Move quality:");
     } else if (viewingIndex !== fenHistory.length - 1) {
         $('#status').html("Viewing a previous move...");
     } else {
@@ -1113,13 +1117,24 @@ function navigationUpdate() {
 
     // Highlight best moves automatically if in game review mode
     if (reviewingGame && viewingIndex > 0) {
+        // Clear existing move judgement
+        $('.judgement-label').remove();
+
         // Get the index of the previous move
         moveIndex = viewingIndex - 1;
 
-        // Display the hint only if the analysis has finished loading
+        // Display the best move & judgement only if the analysis has finished loading
         if (hintHistory[moveIndex]) {
+            // Best move
             var hint = hintHistory[moveIndex];
             highlightHint(hint.from, hint.to);
+
+            // Judgement
+            var prevEval = evalHistory[moveIndex];
+            var currEval = evalHistory[moveIndex + 1];
+            var previousMove = getPreviousMove();
+            var judgement = determineMoveJudgement(previousMove, hint, prevEval, currEval, previousMove.color);
+            $('#status').append('<span class="judgement-label ' + judgement.class + '">' + judgement.text + '</span>');
         }
     }
 
@@ -1375,7 +1390,7 @@ function playMoveSound(moveResult) {
 }
 
 // Retrieve the details of the previously played move
-function getHistoricalMove() {
+function getPreviousMove() {
     var history = game.history({verbose: true});
     var moveIndex = viewingIndex - 1;
     var move = history[moveIndex];
@@ -1390,7 +1405,7 @@ function playHistoricalMoveSound() {
     }
 
     // Determine the kind of move played
-    var move = getHistoricalMove();
+    var move = getPreviousMove();
 
     // Checkmate delivered
     if (move.san.includes('#')) {
@@ -1429,6 +1444,49 @@ function moveHistoryNavigation() {
 }
 // Bind the move history navigation function to move history clicking
 $('#moveHistoryBody').on('click', '.move-link', moveHistoryNavigation);
+
+// Determine the quality of the move played based on evaluation score
+function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
+    var judgement = {};
+
+    // The best move was played
+    if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
+        judgement = { text: 'Best', class: 'judgement-best' };
+    }
+
+    // Other move played
+    else {
+        // Compare winning chance before and after the move (min 0, max 100)
+        var previousWinningChance = calculateEvaluation(previousEvaluation);
+        var currentWinningChance = calculateEvaluation(currentEvaluation);
+
+        /*
+        Calculate the loss of advantage as the difference between evaluation score
+        The engine always calculates evaluation score from White's perspective
+            Increase of score - favorable for White
+            Decrease of score - favorable for Black
+        */
+        var lostAdvantage = 0;
+        if (turnColor === 'w') {
+            // White loses chances if the score gets smaller
+            lostAdvantage = previousWinningChance - currentWinningChance;
+        } else {
+            // Black loses chances if the score gets bigger
+            lostAdvantage = currentWinningChance - previousWinningChance;
+        }
+
+        // Categorize the loss of advantage to determine move judgement
+        if (lostAdvantage <= 10) {
+            judgement = { text: 'Good', class: 'judgement-good' };
+        } else if (lostAdvantage <= 25) {
+            judgement = { text: 'Bad', class: 'judgement-bad' };
+        } else {
+            judgement = { text: 'Blunder', class: 'judgement-blunder' };
+        }
+    }
+
+    return judgement;
+}
 
 // =============================
 // ==  Hotkeys  ================
