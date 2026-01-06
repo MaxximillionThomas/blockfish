@@ -233,7 +233,37 @@ hintEngine.onmessage = function(event) {
 
         // B: Mid-game
         else {
+            // == Highlight the best move squares ==
+            // Pulls data from the engine message, whereas status bar uses a new object for algebraic notation (ex: Bxc6)
             highlightHint(source, target);
+
+            // == Update the status bar with the best move notation ==
+            // Obtain all possible moves
+            var moves = game.moves({ verbose: true });
+
+            // Search through the  moves and find the one that matches the best move provided by the engine
+            var matchedMove = moves.find(function(move) {
+
+                // A match must have the same source and target squares
+                if (move.from !== source) return false;
+                if (move.to !== target) return false;
+
+                // Handle promotions (4 values produced for every promotion)
+                if (move.promotion) {
+                    if (move.promotion === 'q') {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // The move must be legal for the current board state (prevents Undo / timing conflicts)
+            if (matchedMove !== undefined) {
+                $('#status').html("Best move: " + matchedMove.san);
+            }
         }
     }
 };
@@ -360,10 +390,15 @@ function highlightMoves(square) {
 
 // Remove highlighting of source square and legal move squares
 function removeHighlights() {
+    // Highlights
     $('#myBoard .square-55d63').removeClass('highlight-source');
     $('#myBoard .square-55d63').removeClass('highlight-move');
     $('#myBoard .square-55d63').removeClass('highlight-hint');
     if (game.in_check() === false) $('#myBoard .square-55d63').removeClass('in-check');
+
+    // Status bar text
+    var currentText = $('#status').text();
+    if (currentText.startsWith("Best move:")) updateStatus();
 }
 
 // Clear the highlights of the last move played
@@ -423,6 +458,9 @@ function handleSquareClickInteractions(square) {
         if (!piece || piece.color !== game.turn()) {
             return;
         }
+
+        // Reset highlights and status bar text
+        removeHighlights();
 
         // Select it
         selectedSquare = square;
@@ -606,8 +644,9 @@ function updateStatus() {
         }
     }
 
-    // Update the status div
+    // Update visuals
     $('#status').html(status);
+    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Update the move history div
     updateMoveHistory();
@@ -755,9 +794,11 @@ function startNewGame() {
 
     // Prevent game review processes
     reviewingGame = false;
+    document.getElementById('pgn').style.display = 'none';
 
-    // Hide the game over modal if visible
+    // Reset visuals
     closeGameOverModal();
+    removeHighlights();
 
     // Clear queued move and reset game logic
     window.clearTimeout(botEngineTimeout);
@@ -832,12 +873,43 @@ function openGameOverModal(result, reason) {
 // Bind the start new gamefunction to the Rematch button
 rematchBtn.addEventListener('click', startNewGame);
 
-// Close the modal without starting a new game
+// Close the Game Over modal
 function closeGameOverModal() {
+    // Close the modal
     gameOverModal.style.display = "none";
 }
-// Bind the close function to the close button
-gameOverModalCloseBtn.addEventListener('click', closeGameOverModal);
+
+// Close the Game Over modal and return to the main menu
+function exitToMenu() {
+    // Close the modal
+    closeGameOverModal();
+
+    // Stop pending actions and reset flags
+    window.clearTimeout(botEngineTimeout);
+    gameActive = false;
+    reviewingGame = false;
+
+    // Reset game logic and visuals
+    removeHighlights();
+    clearLastMoveHighlights();
+    game.reset();
+    board.start();
+
+    // Reset move history
+    fenHistory = [game.fen()];
+    viewingIndex = 0;
+    evalHistory = [0];
+    currentEval = 0;
+    updateEvalBar(0);
+
+    // Reset controls and refocus
+    toggleGameControls(false);
+    updateStatus();
+    document.getElementById('difficulty').focus();
+}
+
+// Bind the exit to menu function to the close button
+gameOverModalCloseBtn.addEventListener('click', exitToMenu);
 
 // Determine whether the game over modal is open
 function gameOverModalStatus() {
@@ -855,6 +927,7 @@ function reviewGame() {
     // Reset visuals
     closeGameOverModal();
     navigateFirst();
+    removeHighlights();
 
     // Hide controls
     optionsModalBtn.style.display = 'none';
@@ -904,7 +977,7 @@ optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
 
 // Close the options module when clicking outside of it
 function optionsModuleOutsideClick(event) {
-    if (event.target == optionsModal) {
+    if (event.target === optionsModal) {
         closeOptionsModal();
     }
 }
@@ -913,7 +986,7 @@ window.addEventListener('click', optionsModuleOutsideClick);
 // Determine whether the options modal is open
 function optionsModalStatus() {
     var status = false;
-    if (optionsModal.style.display == 'flex') {
+    if (optionsModal.style.display === 'flex') {
         status = true;
     }
     return status;
@@ -1078,6 +1151,7 @@ function toggleNavigation() {
 function navigationUpdate() {
     // Update the board view
     board.position(fenHistory[viewingIndex]);
+    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Update previous move highlights
     updateHistoryHighlights();
@@ -1180,10 +1254,8 @@ function undoMove() {
         currentEval = 0;
     }
 
-    // TEMPORARY ------ viewingIndex guard - delete after control row transfer
-    viewingIndex = fenHistory.length - 1;
-
     // Update the visual board
+    viewingIndex = fenHistory.length - 1;
     board.position(game.fen());
 
     // Reset visual helpers and trigger audio 
@@ -1561,7 +1633,7 @@ console.log(event.key);
         // Close all modals
         case 'Escape':
             if (gameOverModalStatus()) {
-                closeGameOverModal();
+                exitToMenu();
             } else if (optionsModalStatus()) {
                 closeOptionsModal();
             } else if (yesNoModalStatus()) {
