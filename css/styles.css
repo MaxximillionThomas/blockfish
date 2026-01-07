@@ -10,14 +10,45 @@
 // ============================= */
 body {
     background-color:#b5f0da8e;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: 'Rubik', sans-serif;
+    font-size: 16px;
 }
 
 /* =============================
 // ==  Title  ===================
 // ============================= */
+.title, .subtitle {
+    /* Pixelated font */
+    font-family: 'Press Start 2P', cursive;
+    /* Spacing */
+    letter-spacing: 2px;
+    margin-left: 50px; 
+    /* Color scheme */
+    color: #63b59b; 
+    /* Unselectable */
+    user-select: none;
+}
+
 .title {
-    margin-left: 50px;
+    font-size: 30px;
+    margin-top: 35px;
+    margin-bottom: 20px;
+    /* 3D block shadow (cracked stone effect) */
+    text-shadow: 
+        3px 3px 0px #3f3f3f, /* Dark gray shadow side */
+        -1px -1px 0 #6e6e6e, /* Slight highlight top-left */
+        1px 1px 0 #000;      /* Thin black outline */
+}
+
+.subtitle {
+    font-size: 16px;
+    margin-bottom: 35px;
+    /* 3D block shadow (cracked stone effect) */
+    text-shadow: 
+        1px 1px 0px #3f3f3f, /* Dark gray shadow side */
+        -.5px -.5px 0 #6e6e6e, /* Slight highlight top-left */
+        .5px .5px 0 #000;      /* Thin black outline */
+    
 }
 
 /* =============================
@@ -26,7 +57,7 @@ body {
 
 .menu-container {
     margin-left: 50px;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
 }
 
 .menu-item {
@@ -308,7 +339,6 @@ input:checked + .slider:before {
 .move-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: monospace; 
 }
 
 /* Table headers */
@@ -440,7 +470,6 @@ input:checked + .slider:before {
     text-align: center;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    font-family: Arial, sans-serif;
 }
 
 /* =============================
@@ -535,6 +564,22 @@ input:checked + .slider:before {
 .judgement-good { background-color: #089f00; } /* Dark green */
 .judgement-bad { background-color: #ffa500; } /* Orange */
 .judgement-blunder { background-color: #ff0000; } /* Red */
+
+/* Analysis dots in move history */
+.move-dot {
+    height: 8px;
+    width: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.dot-best { background-color: #0cdb02; } /* Light green */
+.dot-good { background-color: #089f00; } /* Dark green */
+.dot-bad { background-color: #ffa500; } /* Orange */
+.dot-blunder { background-color: #ff0000; } /* Red */
+
 
 /* =============================
 // ==  Animation  =============

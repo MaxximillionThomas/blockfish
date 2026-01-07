@@ -200,10 +200,10 @@ hintEngine.onmessage = function(event) {
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
-        var bestMove = event.data.split(' ')[1];
+        var bestMoveMessage = event.data.split(' ')[1];
 
         // Handle game over (no best move) 
-        if (bestMove === '(none)') {
+        if (bestMoveMessage === '(none)') {
             if (reviewingGame) {
                 hintHistory[analysisIndex] = null;
                 analysisIndex++;
@@ -213,20 +213,43 @@ hintEngine.onmessage = function(event) {
 
         // Convert the bestmove into a format the chess.js library understands
         // 1st index is starting point, 2nd index is "ending" point (0,2 means 0-1). 
-        var source = bestMove.substring(0, 2);
-        var target = bestMove.substring(2, 4);
+        var source = bestMoveMessage.substring(0, 2);
+        var target = bestMoveMessage.substring(2, 4);
 
         // A: Reviewing game
         if (reviewingGame) {
-            // Store the best move into the history array
-            hintHistory[analysisIndex] = { from: source, to: target };
+            // == Store the best move into the history array == 
+            var bestMoveObject = { from: source, to: target };
+            hintHistory[analysisIndex] = bestMoveObject;
 
-            // If updating the hint for the viewing index that is currently in view by the user
+            // == Display move quality judgement dot ==
+            // Get the move played
+            var history = game.history({ verbose: true });
+            var movePlayed = history[analysisIndex];
+
+            // Get evaluations
+            var prevEval = evalHistory[analysisIndex];
+            var currEval = evalHistory[analysisIndex + 1];
+
+            // Determine the move quality judgement
+            var judgement = determineMoveJudgement(movePlayed, bestMoveObject, prevEval, currEval, movePlayed.color);
+
+            // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
+            var dotClass = judgement.class.replace('judgement', 'dot');
+
+            // Match the data-index (pgn span element, starts at 1) to the analysis index (starts at 0)
+            var moveIndex = analysisIndex + 1;
+            var $moveSpan = $('.move-link[data-index="' + moveIndex + '"]');
+
+            // Apply the judgement dot 
+            $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
+
+            // == If updating the hint for the viewing index that is currently in view by the user ==
             if (analysisIndex === viewingIndex - 1) {
                 navigationUpdate();
             }
 
-            // Process the next move
+            // == Process the next move ==
             analysisIndex ++;
             triggerMoveAnalysis();
         }
@@ -593,7 +616,7 @@ function toggleGameControls(gameInProgress) {
 function updateStatus() {
     // If the game is not active, prompt the user
     if (!gameActive) {
-        $('#status').html('Click "Start New Game" to begin playing.');
+        $('#status').html('Click “Start New Game” to begin playing.');
         return;
     }
 
@@ -619,16 +642,16 @@ function updateStatus() {
     } else if (game.in_draw()) {
         // Stalemate
         if (game.in_stalemate()) {
-            status = 'Game over. A draw by stalemate was reached.';
+            status = 'Game over.<br>A draw by stalemate was reached.';
             openGameOverModal('Draw', 'Stalemate');
         // Repetition
         } else if (game.in_threefold_repetition()) {
             if (game.in_check()) highlightKingCheck();
-            status = 'Game over. A draw by threefold repetition was reached.';
+            status = 'Game over.<br>A draw by threefold repetition was reached.';
             openGameOverModal('Draw', 'Threefold Repetition');
         // Insufficient material
         } else if (game.insufficient_material()) {
-            status = 'Game over. A draw by insufficient material was reached.';
+            status = 'Game over.<br>A draw by insufficient material was reached.';
             openGameOverModal('Draw', 'Insufficient Material');
         }
         gameActive = false;
@@ -928,6 +951,7 @@ function reviewGame() {
     closeGameOverModal();
     navigateFirst();
     removeHighlights();
+    $('.move-dot').remove();
 
     // Hide controls
     optionsModalBtn.style.display = 'none';
