@@ -781,15 +781,29 @@ function analyzeGame() {
 
 // Process a move in the move history list
 function triggerMoveAnalysis() {
+    // == Loading bar ==
+    // Track percentage of completion
+    var moveCount = game.history().length;
+    if (moveCount > 0) {
+        var completionPercentage = Math.round((analysisIndex / moveCount) * 100);
+
+        // Update the visual bar
+        var percentageText = document.getElementById('analysisPercent');
+        var percentageFill = document.getElementById('analysisProgressBar');
+        percentageText.innerText = completionPercentage;
+        percentageFill.style.width = completionPercentage + '%';
+    }
+
+    // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
     if (analysisIndex >= game.history().length) { 
 
         // Build a new table for storing the move quality types
-        var summary = 'Move summary:<br>';
-        summary += '<span class="summary-badge judgement-best">' + analysisCounts.best + ' Best</span><br>';
-        summary += '<span class="summary-badge judgement-good">' + analysisCounts.good + ' Good</span><br>';
-        summary += '<span class="summary-badge judgement-bad">' + analysisCounts.bad + ' Bad</span><br>';
-        summary += '<span class="summary-badge judgement-blunder">' + analysisCounts.blunder + ' Blunder</span>';
+        var summary = '<span>Move summary:</span>';
+        summary += '<span class="summary-badge judgement-best">' + analysisCounts.best + ' BEST</span>';
+        summary += '<span class="summary-badge judgement-good">' + analysisCounts.good + ' GOOD</span>';
+        summary += '<span class="summary-badge judgement-bad">' + analysisCounts.bad + ' BAD</span>';
+        summary += '<span class="summary-badge judgement-blunder">' + analysisCounts.blunder + ' BLUNDER</span>';
         document.getElementById('analysisText').innerHTML = summary;
 
         return;
@@ -839,6 +853,7 @@ function startNewGame() {
     closeGameOverModal();
     removeHighlights();
     clearLastMoveHighlights();
+    $('#myBoard .square-55d63').removeClass('in-check');
 
     // Clear queued move and reset game logic
     window.clearTimeout(botEngineTimeout);
@@ -932,6 +947,7 @@ function exitToMenu() {
     // Reset game logic and visuals
     removeHighlights();
     clearLastMoveHighlights();
+    $('#myBoard .square-55d63').removeClass('in-check');
     game.reset();
     board.start();
 
@@ -964,24 +980,33 @@ function gameOverModalStatus() {
 function reviewGame() {
     reviewingGame = true;
 
-    // Reset visuals
+    // == Reset board visuals == 
     closeGameOverModal();
     navigateFirst();
     removeHighlights();
+
+    // == Reset game review visuals ==
+    // Move type counts
     $('.move-dot').remove();
     analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
-    document.getElementById('analysisText').innerText = "Loading move summary...";
+    // Analysis loading bar
+    var loadingHtml = '';
+    loadingHtml += '<div class="analysis-loading-text">Analyzing moves... <span id="analysisPercent">0</span>%</div>';
+    loadingHtml += '<div class="analysis-progress-container">';
+    loadingHtml += '<div id="analysisProgressBar" class="analysis-progress-fill"></div>';
+    loadingHtml += '</div>';
+    document.getElementById('analysisText').innerHTML = loadingHtml;
 
-    // Hide controls
+    // == Hide controls ==
     optionsModalBtn.style.display = 'none';
     undoBtn.style.display = 'none';
     hintBtn.style.display = 'none';
     resignBtn.style.display = 'none';
 
-    // Display move history
+    // == Display move history ==
     document.getElementById('moveHistoryAnalysisContainer').style.display = 'flex';
 
-    // Trigger batch move analysis
+    // == Trigger batch move analysis ==
     analyzeGame();
 }
 // Bind the review game function to the game review button
@@ -1192,12 +1217,34 @@ function toggleNavigation() {
 
 // Update the board and move highlights per the viewing index 
 function navigationUpdate() {
+    // == Board ==
     // Update the board view
     board.position(fenHistory[viewingIndex]);
     document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+    // == Move history markup == 
+    if (reviewingGame) {
+        // Clear "current move" notation highlights
+        $('.move-link').removeClass('current-move');
+
+        // Highlight "current move" notation
+        if (viewingIndex > 0) {
+            // Find the specific html element for the current move
+            var $currentmove = $('.move-link[data-index="' + viewingIndex + '"]');
+            if ($currentmove.length > 0) {
+                // Style the element 
+                $currentmove.addClass('current-move');
+                // Auto-scroll to the element
+                $currentmove[0].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            }
+        }
+    }
+
+    // == Highlights (1) ==
     // Update previous move highlights
     updateHistoryHighlights();
+
+
 
     // Update in-check highlights
     $('#myBoard .square-55d63').removeClass('in-check');
@@ -1210,16 +1257,20 @@ function navigationUpdate() {
             highlightKingCheck(colorInCheck);
         }
 
+        // == Animation ==
         // Apply the wiggle animation
         wiggleAnimation(move.to, 250);
     }
 
+    // == Audio ==
     // Play audio based on the type of move being viewed    
     playHistoricalMoveSound();
     
+    // == Evaluation bar == 
     // Update the evaluation score bar
     updateEvalBar(evalHistory[viewingIndex]);
 
+    // == Status text ==
     // Update the move status text
     if (reviewingGame) {
         $('#status').html("Move quality:");
@@ -1229,6 +1280,7 @@ function navigationUpdate() {
         updateStatus();
     }
 
+    // == Highlights (2)
     // Clear existing best move highlights
     $('#myBoard .square-55d63').removeClass('highlight-hint');
 
@@ -1255,6 +1307,7 @@ function navigationUpdate() {
         }
     }
 
+    // == Navigation == 
     // Disable/enable navigation buttons as necessary
     toggleNavigation();
 }
