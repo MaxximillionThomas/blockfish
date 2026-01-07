@@ -592,7 +592,7 @@ function toggleGameControls(gameInProgress) {
     // Difficulty drop-down
     document.getElementById('difficulty').disabled = gameInProgress;
     // Color radio buttons
-    colorRadios = document.querySelectorAll('input[name="color"]');
+    var colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
         radio.disabled = gameInProgress;
     });
@@ -706,7 +706,7 @@ function updateMoveHistory() {
 
         // Black move is the second in the pair
         if (history[i + 1]) {
-            blackIndex = i + 2;
+            var blackIndex = i + 2;
             blackMove = '<span class="move-link" data-index="' + blackIndex + '">' + history[i + 1] + '</span>';
         // Handle pending black move
         } else {
@@ -822,6 +822,7 @@ function startNewGame() {
     // Reset visuals
     closeGameOverModal();
     removeHighlights();
+    clearLastMoveHighlights();
 
     // Clear queued move and reset game logic
     window.clearTimeout(botEngineTimeout);
@@ -1187,7 +1188,7 @@ function navigationUpdate() {
         // Check for check (+) or checkmate (#)
         if (move.san.includes('+') || move.san.includes('#')) {
             // The previous move (opposite color) put THIS color in check
-            colorInCheck = (move.color === 'w') ? 'b' : 'w';
+            var colorInCheck = (move.color === 'w') ? 'b' : 'w';
             highlightKingCheck(colorInCheck);
         }
 
@@ -1219,7 +1220,7 @@ function navigationUpdate() {
         $('.judgement-label').remove();
 
         // Get the index of the previous move
-        moveIndex = viewingIndex - 1;
+        var moveIndex = viewingIndex - 1;
 
         // Display the best move & judgement only if the analysis has finished loading
         if (hintHistory[moveIndex]) {
@@ -1352,8 +1353,8 @@ optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
 
 // Update evaluation bar
 function updateEvalBar(centipawns) {
-    evalBar = document.getElementById('evalBar');
-    evalScore = document.getElementById('evalScore');
+    var evalBar = document.getElementById('evalBar');
+    var evalScore = document.getElementById('evalScore');
     var mateIncoming = Math.abs(centipawns) > 5000 ? true : false
     var barHeight = calculateEvaluation(centipawns);
 
@@ -1545,42 +1546,76 @@ $('#moveHistoryBody').on('click', '.move-link', moveHistoryNavigation);
 function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
     var judgement = {};
 
-    // The best move was played
+    // == The best move was played ==
     if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
         judgement = { text: 'Best', class: 'judgement-best' };
+        return judgement;
     }
 
-    // Other move played
-    else {
-        // Compare winning chance before and after the move (min 0, max 100)
-        var previousWinningChance = calculateEvaluation(previousEvaluation);
-        var currentWinningChance = calculateEvaluation(currentEvaluation);
+    // == Blunder check == 
+    // Define thresholds for Mate and "lost" position (7.5 pawns)
+    var mateThreshold = 5000;
+    var lostThreshold = 750;
 
-        /*
-        Calculate the loss of advantage as the difference between evaluation score
-        The engine always calculates evaluation score from White's perspective
-            Increase of score - favorable for White
-            Decrease of score - favorable for Black
-        */
-        var lostAdvantage = 0;
-        if (turnColor === 'w') {
-            // White loses chances if the score gets smaller
-            lostAdvantage = previousWinningChance - currentWinningChance;
-        } else {
-            // Black loses chances if the score gets bigger
-            lostAdvantage = currentWinningChance - previousWinningChance;
+    // Check for current and previous mate
+    var isMateAgainstWhite = (currentEvaluation <= -mateThreshold);
+    var isMateAgainstBlack = (currentEvaluation >= mateThreshold);
+    var wasMateAgainstWhite = (previousEvaluation <= -mateThreshold);
+    var wasMateAgainstBlack = (previousEvaluation >= mateThreshold);
+
+    // Check if previously in lost position
+    var whiteWasLost = (previousEvaluation < -lostThreshold);
+    var blackWasLost = (previousEvaluation > lostThreshold);
+
+    // Determine whether the position was blundered
+    var positionBlundered = false;
+    if (turnColor === 'w') {
+        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
+        if (isMateAgainstWhite && !wasMateAgainstWhite && !whiteWasLost) {
+            positionBlundered = true;
         }
-
-        // Categorize the loss of advantage to determine move judgement
-        if (lostAdvantage <= 10) {
-            judgement = { text: 'Good', class: 'judgement-good' };
-        } else if (lostAdvantage <= 25) {
-            judgement = { text: 'Bad', class: 'judgement-bad' };
-        } else {
-            judgement = { text: 'Blunder', class: 'judgement-blunder' };
+    } else {
+        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
+        if (isMateAgainstBlack && !wasMateAgainstBlack && !blackWasLost) {
+            positionBlundered = true;
         }
     }
 
+    // The position was blundered, no need to further analyze move quality
+    if (positionBlundered) {
+        judgement = { text: 'Blunder', class: 'judgement-blunder' };
+        return judgement;
+    }
+
+    // == Standard move judgement ==
+    // Compare winning chance before and after the move (min 0, max 100)
+    var previousWinningChance = calculateEvaluation(previousEvaluation);
+    var currentWinningChance = calculateEvaluation(currentEvaluation);
+
+    /*
+    Calculate the loss of advantage as the difference between evaluation score
+    The engine always calculates evaluation score from White's perspective
+        Increase of score - favorable for White
+        Decrease of score - favorable for Black
+    */
+    var lostAdvantage = 0;
+    if (turnColor === 'w') {
+        // White loses chances if the score gets smaller
+        lostAdvantage = previousWinningChance - currentWinningChance;
+    } else {
+        // Black loses chances if the score gets bigger
+        lostAdvantage = currentWinningChance - previousWinningChance;
+    }
+
+    // Categorize the loss of advantage to determine move judgement
+    if (lostAdvantage <= 10) {
+        judgement = { text: 'Good', class: 'judgement-good' };
+    } else if (lostAdvantage <= 25) {
+        judgement = { text: 'Bad', class: 'judgement-bad' };
+    } else {
+        judgement = { text: 'Blunder', class: 'judgement-blunder' };
+    }
+    
     return judgement;
 }
 
