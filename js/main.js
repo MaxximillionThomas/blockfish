@@ -24,13 +24,14 @@ var clickMovesEnabled = true;
 var dragMovesEnabled = true;
 var evalBarEnabled = true;
 
-// Store move data history for back/forward navigation
+// Store move data history for navigation and analysis
 var fenHistory = [];
 var viewingIndex = 0;
 var evalHistory = [0];
 var currentEval = 0;
 var hintHistory = [];
 var analysisIndex = 0;
+var analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
 
 // Store sounds used for game actions
 var sounds = {
@@ -233,6 +234,10 @@ hintEngine.onmessage = function(event) {
 
             // Determine the move quality judgement
             var judgement = determineMoveJudgement(movePlayed, bestMoveObject, prevEval, currEval, movePlayed.color);
+
+            // Increment the respective judgement count
+            var type = judgement.text.toLowerCase();
+            if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
 
             // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
             var dotClass = judgement.class.replace('judgement', 'dot');
@@ -776,8 +781,19 @@ function analyzeGame() {
 
 // Process a move in the move history list
 function triggerMoveAnalysis() {
-    // Stop once every move has been analyzed
-    if (analysisIndex >= fenHistory.length) return;
+    // Stop once every move has been analyzed, then generate a summary
+    if (analysisIndex >= game.history().length) { 
+
+        // Build a new table for storing the move quality types
+        var summary = 'Move summary:<br>';
+        summary += '<span class="summary-badge judgement-best">' + analysisCounts.best + ' Best</span><br>';
+        summary += '<span class="summary-badge judgement-good">' + analysisCounts.good + ' Good</span><br>';
+        summary += '<span class="summary-badge judgement-bad">' + analysisCounts.bad + ' Bad</span><br>';
+        summary += '<span class="summary-badge judgement-blunder">' + analysisCounts.blunder + ' Blunder</span>';
+        document.getElementById('analysisText').innerHTML = summary;
+
+        return;
+    }
 
     // Retrieve the board state for the targeted turn
     var fen = fenHistory[analysisIndex];
@@ -817,7 +833,7 @@ function startNewGame() {
 
     // Prevent game review processes
     reviewingGame = false;
-    document.getElementById('pgn').style.display = 'none';
+    document.getElementById('moveHistoryAnalysisContainer').style.display = 'none';
 
     // Reset visuals
     closeGameOverModal();
@@ -953,6 +969,8 @@ function reviewGame() {
     navigateFirst();
     removeHighlights();
     $('.move-dot').remove();
+    analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
+    document.getElementById('analysisText').innerText = "Loading move summary...";
 
     // Hide controls
     optionsModalBtn.style.display = 'none';
@@ -961,7 +979,7 @@ function reviewGame() {
     resignBtn.style.display = 'none';
 
     // Display move history
-    document.getElementById('pgn').style.display = 'block';
+    document.getElementById('moveHistoryAnalysisContainer').style.display = 'flex';
 
     // Trigger batch move analysis
     analyzeGame();

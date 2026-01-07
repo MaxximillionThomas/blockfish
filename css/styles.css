@@ -321,18 +321,62 @@ input:checked + .slider:before {
 }
 
 /* =============================
-// ==  Move history  ===========
+// ==  Move history analysis  ==
 // ============================= */
 
-/* Parent move history element - updates with the subsequent styles through js */
-.pgn {
+/* The parent wrapper */
+.move-history-analysis-container {
     display: none;
-    width: 200px;
-    height: 475px; 
+    /* Stack summary on top of table */
+    flex-direction: column;
+    width: 250px;
+    height: 475px;
+    border: 2px solid #ccc;
+    background-color: #e0e0e0;
+}
+
+/* The analysis summary */
+.analysis-pane {
+    background-color: #f8f8f8;
+    padding: 10px;
+    border-bottom: 2px solid #ccc;
+    text-align: center;
+    font-size: 14px;
+    min-height: 120px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Text element populating the analysis pane */
+#analysisText {
+    margin: 0;
+    font-weight: bold;
+    color: #555;
+    line-height: 1.5;
+}
+
+/* Analysis summary badges (mini versions of the labels) */
+.summary-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    margin: 0 3px;
+    display: inline-block;
+}
+
+/* Move history element - updates with the subsequent styles through js */
+.pgn { 
     overflow-y: auto;
     background-color: #e0e0e0;
     border-color: gray;
     border-style: solid;
+    /* Take up all space left over by the summary */
+    flex-grow: 1;    
+    /* Force the scrollbar to appear inside this element */
+    min-height: 0;   
+    border-width: 1px 0 0 0; 
 }
 
 /* Table structure */

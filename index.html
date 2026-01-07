@@ -28,6 +28,7 @@
 
     <!-- Menu options -->
     <div id="menuContainer" class="menu-container">
+
         <!-- Bot difficulty drop-down selection -->
         <div class="menu-item">
             <label for="difficulty">Select Bot <u>D</u>ifficulty: </label>
@@ -81,8 +82,9 @@
                 <div id="myBoard" class="board"></div>
             </div>
 
-            <!-- Postgame: previous move navigation -->
+            <!-- Game container bottom control row -->
             <div class="control-row">
+
                 <!-- Undo previous move -->
                 <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">&#8630;</button>
                 
@@ -102,21 +104,29 @@
             </div>
         </div>
 
-        <!-- Move history -->
-        <div id="pgn" class="pgn">
-            <table class="move-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>White</th>
-                        <th>Black</th>
-                    </tr>
-                </thead>
-                <tbody id="moveHistoryBody">
-                </tbody>
-            </table>
+        <!-- Move history analysis -->
+        <div id="moveHistoryAnalysisContainer" class="move-history-analysis-container">
+
+            <!-- Analysis summary -->
+            <div id="analysisPane" class="analysis-pane">
+                <p id="analysisText">Loading analysis summary...</p>
+            </div>
+
+            <!-- Move history -->
+            <div id="pgn" class="pgn">
+                <table class="move-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>White</th>
+                            <th>Black</th>
+                        </tr>
+                    </thead>
+                    <tbody id="moveHistoryBody">
+                    </tbody>
+                </table>
+            </div>
         </div>
-        
     </div>
 
     <!-- Game over modal -->
