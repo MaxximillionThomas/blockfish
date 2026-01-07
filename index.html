@@ -23,7 +23,7 @@
 
 <!-- Body -->
 <body>
-    <h1 class="title">Blockfish</h1>
+    <h1 class="title" id="title">Blockfish</h1>
     <h2 class="subtitle">Minecraft-Themed Stockfish Practice</h2>
 
     <!-- Menu options -->
@@ -33,11 +33,11 @@
         <div class="menu-item">
             <label for="difficulty">Select Bot <u>D</u>ifficulty: </label>
             <label data-tooltip="Change the difficulty of the chess engine">
-                <select id="difficulty" class="menu-item-interactive" onchange="setEngineDifficulty(this.value)">
+                <select id="difficulty" class="menu-item-interactive">
                     <option value="0" selected>1 - Easiest</option>
-                    <option value="3">2 - Easy</option>
-                    <option value="7">3 - Medium</option>
-                    <option value="14">4 - Hard</option>
+                    <option value="5">2 - Easy</option>
+                    <option value="10">3 - Medium</option>
+                    <option value="15">4 - Hard</option>
                     <option value="20">5 - Impossible</option>
                 </select>
             </label>

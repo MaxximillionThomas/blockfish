@@ -60,29 +60,33 @@ Configure engine starting settings
 */
 var botDifficulty = 0;
 var botSearchDepth = 1;
+var randomizationFactor = 0.3;
 botEngine.postMessage('uci'); 
 botEngine.postMessage('setoption name Skill Level value ' + botDifficulty); 
 
 // Allow setting of engine difficulty
-function setBotEngineDifficulty(newDifficulty) {    
-
+function setBotEngineDifficulty() {    
     // Set the difficulty
-    botDifficulty = newDifficulty;
-    botEngine.postMessage('setoption name Skill Level value ' + botDifficulty)
+    botDifficulty = parseInt(difficultyElement.value);
+    botEngine.postMessage('setoption name Skill Level value ' + botDifficulty);
 
     // Set the search depth level in accordance with difficulty
     // Easiest + Easy
-    if (botDifficulty < 5) {
+    if (botDifficulty < 6) {
         botSearchDepth = 1;
+        randomizationFactor = 0.3;
     // Medium
-    } else if (botDifficulty < 10) {
-        botSearchDepth = 3;       
+    } else if (botDifficulty < 11) {
+        botSearchDepth = 3;   
+        randomizationFactor = 0.05;    
     // Hard
-    } else if (botDifficulty < 15) {
+    } else if (botDifficulty < 16) {
         botSearchDepth = 7;  
+        randomizationFactor = 0;
     // Impossible
     } else {
-        botSearchDepth = 10;      
+        botSearchDepth = 10;
+        randomizationFactor = 0;      
     }
 }
 
@@ -135,7 +139,6 @@ botEngine.onmessage = function(event) {
         updateEvalBar(currentEval);
     }
     
-
     // == Best move ===========
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
@@ -149,19 +152,61 @@ botEngine.onmessage = function(event) {
         // 4th index is blank unless there is a promotion (ex: 'e7e8q' means pawn promotes to queen)
         var promotion = bestMove.substring(4, 5);
 
+        // To store the move for execution after it's been determined (best or weakened)
+        var engineMove = null;
+
+        /* 
+        == Move weakener ==
+            Even with difficulty 0 and searchDepth 1, the engine consistently plays strong moves
+            If playing on 'easy mode', we need to manually intervene by randomly selecting a move instead of using the best move
+        */
+        if (botDifficulty < 16) {
+            // X% chance of selecting a random move instead of the best move
+            if (Math.random() < randomizationFactor) {
+                // Retrieve all possible moves and select one at random
+                var legalMoves = game.moves({ verbose: true });
+
+                 // Loop until a LEGAL move has been randomly selected
+                while (engineMove === null && legalMoves.length > 0) {
+                    var randomIndex = Math.floor(Math.random() * legalMoves.length);
+                    var randomMove = legalMoves[randomIndex];
+
+                    // Attempt to make the move 
+                    engineMove = game.move({
+                        from: randomMove.from,
+                        to: randomMove.to,
+                        promotion: randomMove.promotion || ''
+                    });
+
+                    // If the move was legal, save source and target for highlighting purposes
+                    if (engineMove !== null) {
+                        source = randomMove.from;
+                        target = randomIndex.to;
+                        promotion = randomMove.promotion || '';
+                    // The move was illegal, remove it from the list and try again
+                    } else {
+                        legalMoves.splice(randomIndex, 1);
+                    }
+                }
+            }
+        }
+
+        // == Move initiation ==
         // Use the shared game logic for the engine's move
-        var engineMove = game.move({
-            from: source,
-            to: target,
-            // Queen promotion as empty string protection
-            promotion: promotion || 'q'
-        });
+        if (engineMove === null) {
+            engineMove = game.move({
+                from: source,
+                to: target,
+                // Queen promotion as empty string protection
+                promotion: promotion || 'q'
+            });
+        }
 
         // Play a sound after the engine has played its move
         playMoveSound(engineMove);
 
         // Highlight the engine's move for player awareness
-        removeHighlights();
+        removeCurrentMoveHighlights();
         highlightLastMove(source, target)
 
         // Save the current position to the FEN history
@@ -261,6 +306,12 @@ hintEngine.onmessage = function(event) {
 
         // B: Mid-game
         else {
+            // No hint requested - the player started a new game before the move-analysis was complete
+            if (!gettingHint) return;
+
+            // Reset the flag
+            gettingHint = false;
+
             // == Highlight the best move squares ==
             // Pulls data from the engine message, whereas status bar uses a new object for algebraic notation (ex: Bxc6)
             highlightHint(source, target);
@@ -335,7 +386,7 @@ function onDragStart (source, piece) {
     }
 
     // Highlight only the selected piece and it's legal moves
-    removeHighlights();
+    removeCurrentMoveHighlights();
     highlightSquare(source);
     highlightMoves(source);
 
@@ -350,7 +401,7 @@ function onDrop (source, target) {
 
         // If in drag-mode, only display legal move highlighting while holding the piece (onDrag, not onDrop)
         if (!clickMovesEnabled) {
-            removeHighlights();
+            removeCurrentMoveHighlights();
         }
 
         // Visually return the piece to it's original square
@@ -368,7 +419,7 @@ function onDrop (source, target) {
     // If the move is illegal, return the piece to its original square
     if (move === null) {
         selectedSquare = null;
-        removeHighlights();
+        removeCurrentMoveHighlights();
         return 'snapback';
     }
 
@@ -381,7 +432,7 @@ function onDrop (source, target) {
 
 
     // Highlight the players move for awareness
-    removeHighlights();
+    removeCurrentMoveHighlights();
     highlightLastMove(source, target); 
 
     // Save the current position to the FEN history
@@ -417,20 +468,20 @@ function highlightMoves(square) {
 }
 
 // Remove highlighting of source square and legal move squares
-function removeHighlights() {
+function removeCurrentMoveHighlights() {
     // Highlights
     $('#myBoard .square-55d63').removeClass('highlight-source');
     $('#myBoard .square-55d63').removeClass('highlight-move');
     $('#myBoard .square-55d63').removeClass('highlight-hint');
-    if (game.in_check() === false) $('#myBoard .square-55d63').removeClass('in-check');
+    if (game.in_check() === false) removeInCheckHighlights();
 
     // Status bar text
     var currentText = $('#status').text();
     if (currentText.startsWith("Best move:")) updateStatus();
 }
 
-// Clear the highlights of the last move played
-function clearLastMoveHighlights() {
+// Remove the highlights of the last move played
+function removePreviousMoveHighlights() {
     $('#myBoard .square-55d63').removeClass('highlight-played');
 }
 
@@ -438,7 +489,7 @@ function clearLastMoveHighlights() {
 function updateHistoryHighlights() {
     // Don't show highlights on the first move
     if (viewingIndex === 0) {
-        clearLastMoveHighlights();
+        removePreviousMoveHighlights();
         return;
     }
 
@@ -455,9 +506,21 @@ function updateHistoryHighlights() {
 
 // Highlight the last move played
 function highlightLastMove(source, target) {
-    clearLastMoveHighlights();
+    removePreviousMoveHighlights();
     $('#myBoard .square-' + source).addClass('highlight-played');
     $('#myBoard .square-' + target).addClass('highlight-played');
+}
+
+// Remove in-check highlights
+function removeInCheckHighlights() {
+    $('#myBoard .square-55d63').removeClass('in-check');
+}
+
+// Remove all highlights
+function removeAllHighlights() {
+    removePreviousMoveHighlights();
+    removeCurrentMoveHighlights();
+    removeInCheckHighlights();
 }
 
 // Enable and disable legal move highlighting ability
@@ -488,7 +551,7 @@ function handleSquareClickInteractions(square) {
         }
 
         // Reset highlights and status bar text
-        removeHighlights();
+        removeCurrentMoveHighlights();
 
         // Select it
         selectedSquare = square;
@@ -501,7 +564,7 @@ function handleSquareClickInteractions(square) {
     // 2A. Same square clicked - deselect it
     if (square === selectedSquare) {
         selectedSquare = null;
-        removeHighlights();
+        removeCurrentMoveHighlights();
         return;
     }
 
@@ -510,7 +573,7 @@ function handleSquareClickInteractions(square) {
     // If(piece) returns true if selection is not null - piece.color crashes on null
     if (piece && piece.color === game.turn()) {
         selectedSquare = square;
-        removeHighlights();
+        removeCurrentMoveHighlights();
         highlightSquare(square);
         highlightMoves(square);
         return;
@@ -527,7 +590,7 @@ function handleSquareClickInteractions(square) {
     if (move === null) {
         // Illegal move
         selectedSquare = null;
-        removeHighlights();
+        removeCurrentMoveHighlights();
     } else {
         // Legal move
         board.position(game.fen());
@@ -536,7 +599,7 @@ function handleSquareClickInteractions(square) {
         selectedSquare = null;
         playMoveSound(move);
         wiggleAnimation(square, 250);
-        if (game.in_check() === false) removeHighlights();
+        if (game.in_check() === false) removeCurrentMoveHighlights();
         window.setTimeout(makeEngineMove, 250);
     }
 }
@@ -762,7 +825,7 @@ function highlightKingCheck(color) {
     }
 
     // Apply the class
-    removeHighlights();
+    removeCurrentMoveHighlights();
     $('#myBoard .square-' + kingSquare).addClass('in-check');
 
     // Apply a wiggle animation
@@ -837,6 +900,10 @@ updateStatus();
 // ==  UI controls  ============
 // =============================
 
+// ==========  Difficulty selection  ==========
+difficultyElement = document.getElementById('difficulty');
+difficultyElement.addEventListener('change', setBotEngineDifficulty);
+
 // ==========  Start new game  ==========
 // Reset the game to the starting position
 function startNewGame() {
@@ -851,9 +918,7 @@ function startNewGame() {
 
     // Reset visuals
     closeGameOverModal();
-    removeHighlights();
-    clearLastMoveHighlights();
-    $('#myBoard .square-55d63').removeClass('in-check');
+    removeAllHighlights();
 
     // Clear queued move and reset game logic
     window.clearTimeout(botEngineTimeout);
@@ -944,10 +1009,8 @@ function exitToMenu() {
     gameActive = false;
     reviewingGame = false;
 
-    // Reset game logic and visuals
-    removeHighlights();
-    clearLastMoveHighlights();
-    $('#myBoard .square-55d63').removeClass('in-check');
+    // Reset visuals and game logic
+    removeAllHighlights();
     game.reset();
     board.start();
 
@@ -961,7 +1024,7 @@ function exitToMenu() {
     // Reset controls and refocus
     toggleGameControls(false);
     updateStatus();
-    document.getElementById('difficulty').focus();
+    document.getElementById('title').focus();
 }
 
 // Bind the exit to menu function to the close button
@@ -983,7 +1046,7 @@ function reviewGame() {
     // == Reset board visuals == 
     closeGameOverModal();
     navigateFirst();
-    removeHighlights();
+    removeCurrentMoveHighlights();
 
     // == Reset game review visuals ==
     // Move type counts
@@ -1071,7 +1134,7 @@ function setMovingPreference(enableClicking, enableDragging) {
     // Handle conflicts if the user changes settings while a piece is selected
     if (!clickMovesEnabled) {
         selectedSquare = null;
-        removeHighlights();
+        removeCurrentMoveHighlights();
     }
 }
 // Bind the moving preference function to the moveving preference radiobuttons
@@ -1244,10 +1307,8 @@ function navigationUpdate() {
     // Update previous move highlights
     updateHistoryHighlights();
 
-
-
     // Update in-check highlights
-    $('#myBoard .square-55d63').removeClass('in-check');
+    removeInCheckHighlights();
     var move = (viewingIndex !== 0) ? getPreviousMove() : null;
     if (move !== null) {
         // Check for check (+) or checkmate (#)
@@ -1356,7 +1417,7 @@ function undoMove() {
 
     // Reset visual helpers and trigger audio 
     updateStatus();
-    removeHighlights();
+    removeCurrentMoveHighlights();
     selectedSquare = null;
     updateHistoryHighlights();
     updateEvalBar(currentEval);
@@ -1384,6 +1445,9 @@ function getHint() {
     if (!gameActive) return;
     if (game.turn() !== playerColor.charAt(0)) return;
     if (viewingIndex !== fenHistory.length - 1) return;
+
+    // Prevent residual highlights in else fallback of hintEngine.onmessage when starting a new game mid move-analysis
+    gettingHint = true;
 
     // Request the best move from the hint engine
     hintEngine.postMessage('position fen ' + game.fen());
