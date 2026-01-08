@@ -43,10 +43,6 @@ var sounds = {
     hover: new Audio('audio/hover.mp3')
 };
 
-// =============================
-// ==  Bot engine  =============
-// =============================
-
 // Initialize the Stockfish chess engine
 var botEngine = new Worker('js/stockfish.js');
 
@@ -55,40 +51,67 @@ var botEngineTimeout = null;
 
 /* 
 Configure engine starting settings 
-    The engine has different difficulty levels (0-20), start at the easiest
+    The engine has different difficulty levels (0-20). This attribute will be set later based on Elo
     Search depth determines how many moves ahead the engine will consider
+    Randomization factor determines how often the engine will make a sub-optimal move (for lower difficulties)
 */
-var botDifficulty = 0;
 var botSearchDepth = 1;
-var randomizationFactor = 0.3;
+var randomizationFactor = 0;   
+
+// Bot difficulty categories
+const difficultyCategories = [
+    { name: "Very Easy",   min: 100,  max: 500 },
+    { name: "Easy",        min: 600,  max: 1000 },
+    { name: "Medium",      min: 1100, max: 1500 },
+    { name: "Hard",        min: 1600, max: 2000 },
+    { name: "Expert",      min: 2100, max: 2500 },
+    { name: "Grandmaster", min: 2600, max: 3000 }
+];
+
+// 2. Profiles mapping Elo to engine settings
+const botProfiles = {
+    100:  { skill: 0,  depth: 1,  random: 0.80 },
+    200:  { skill: 0,  depth: 1,  random: 0.70 },
+    300:  { skill: 0,  depth: 1,  random: 0.65 },
+    400:  { skill: 0,  depth: 1,  random: 0.60 },
+    500:  { skill: 0,  depth: 1,  random: 0.55 },
+    600:  { skill: 0,  depth: 2,  random: 0.50 },
+    700:  { skill: 0,  depth: 2,  random: 0.45 },
+    800:  { skill: 1,  depth: 2,  random: 0.40 },
+    900:  { skill: 1,  depth: 3,  random: 0.35 },
+    1000: { skill: 2,  depth: 3,  random: 0.30 },
+    1100: { skill: 3,  depth: 4,  random: 0.25 },
+    1200: { skill: 4,  depth: 4,  random: 0.20 },
+    1300: { skill: 5,  depth: 5,  random: 0.15 },
+    1400: { skill: 6,  depth: 5,  random: 0.10 },
+    1500: { skill: 7,  depth: 6,  random: 0.05 },
+    1600: { skill: 8,  depth: 6,  random: 0.00 },
+    1700: { skill: 9,  depth: 7,  random: 0.00 },
+    1800: { skill: 10, depth: 8,  random: 0.00 },
+    1900: { skill: 11, depth: 9,  random: 0.00 },
+    2000: { skill: 12, depth: 10, random: 0.00 },
+    2100: { skill: 13, depth: 11, random: 0.00 },
+    2200: { skill: 14, depth: 12, random: 0.00 },
+    2300: { skill: 15, depth: 13, random: 0.00 },
+    2400: { skill: 16, depth: 14, random: 0.00 },
+    2500: { skill: 17, depth: 15, random: 0.00 },
+    2600: { skill: 18, depth: 16, random: 0.00 },
+    2700: { skill: 19, depth: 17, random: 0.00 },
+    2800: { skill: 20, depth: 18, random: 0.00 },
+    2900: { skill: 20, depth: 20, random: 0.00 },
+    3000: { skill: 20, depth: 22, random: 0.00 }
+};
+
+// Starting configurations
+var currentCategoryIndex = 0; 
+var currentElo = 100;  
+
+// =============================
+// ==  Bot engine  =============
+// =============================
+
+// Awaken the engine
 botEngine.postMessage('uci'); 
-botEngine.postMessage('setoption name Skill Level value ' + botDifficulty); 
-
-// Allow setting of engine difficulty
-function setBotEngineDifficulty() {    
-    // Set the difficulty
-    botDifficulty = parseInt(difficultyElement.value);
-    botEngine.postMessage('setoption name Skill Level value ' + botDifficulty);
-
-    // Set the search depth level in accordance with difficulty
-    // Easiest + Easy
-    if (botDifficulty < 6) {
-        botSearchDepth = 1;
-        randomizationFactor = 0.3;
-    // Medium
-    } else if (botDifficulty < 11) {
-        botSearchDepth = 3;   
-        randomizationFactor = 0.05;    
-    // Hard
-    } else if (botDifficulty < 16) {
-        botSearchDepth = 7;  
-        randomizationFactor = 0;
-    // Impossible
-    } else {
-        botSearchDepth = 10;
-        randomizationFactor = 0;      
-    }
-}
 
 // Set up responses from the engine
 botEngine.onmessage = function(event) {
@@ -160,7 +183,7 @@ botEngine.onmessage = function(event) {
             Even with difficulty 0 and searchDepth 1, the engine consistently plays strong moves
             If playing on 'easy mode', we need to manually intervene by randomly selecting a move instead of using the best move
         */
-        if (botDifficulty < 16) {
+        if (currentElo < 1600) {
             // X% chance of selecting a random move instead of the best move
             if (Math.random() < randomizationFactor) {
                 // Retrieve all possible moves and select one at random
@@ -658,7 +681,7 @@ $('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
 function toggleGameControls(gameInProgress) {
     // Manu options
     // Difficulty drop-down
-    document.getElementById('difficulty').disabled = gameInProgress;
+    // document.getElementById('difficulty').disabled = gameInProgress; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // Color radio buttons
     var colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
@@ -901,8 +924,95 @@ updateStatus();
 // =============================
 
 // ==========  Difficulty selection  ==========
-difficultyElement = document.getElementById('difficulty');
-difficultyElement.addEventListener('change', setBotEngineDifficulty);
+// difficultyElement = document.getElementById('difficulty');
+// difficultyElement.addEventListener('change', setBotEngineDifficulty);
+var catPrevious = document.getElementById('catPrevious');
+var categoryDisplay = document.getElementById('categoryDisplay');
+var catNext = document.getElementById('catNext');
+var eloSlider = document.getElementById('eloSlider');
+var eloDisplay = document.getElementById('eloDisplay');
+
+// == Helper methods ==
+// Update the difficulty category
+function updateDifficultyCategory() {
+    // Get the current category
+    var category = difficultyCategories[currentCategoryIndex];
+
+    // Update the category text display
+    categoryDisplay.innerText = category.name;
+
+    // Update the Elo slider range and default position
+    eloSlider.min = category.min;
+    eloSlider.max = category.max;
+    eloSlider.value = category.min;
+
+    // Update the Elo value and engine settings
+    updateEloValue(category.min);
+    updateEngineSettings(category.min);
+
+    // Enable/disable the previous/next buttons as appropriate
+    if (currentCategoryIndex === 0) {
+        catPrevious.disabled = true;
+    } else {
+        catPrevious.disabled = false;
+    }
+    if (currentCategoryIndex === difficultyCategories.length - 1) {
+        catNext.disabled = true;
+    } else {
+        catNext.disabled = false;
+    }
+}
+
+// Update the Elo value
+function updateEloValue(eloValue) {
+    eloDisplay.innerText = 'Elo: ' + eloValue;
+    currentElo = eloValue;
+}
+
+// Update the engine profile settings based on the current Elo value
+function updateEngineSettings(elo) {
+    // Select the bot profile that matches the current Elo
+    var profile = botProfiles[elo];
+
+    // Set the skill level, search depth, and randomization factor
+    botEngine.postMessage("setoption name Skill Level value " + profile.skill);
+    botSearchDepth = profile.depth;
+    randomizationFactor = profile.random;
+
+    // Debugging output
+    console.log('Bot Profile Set: Elo ' + elo + ' | Skill Level ' + profile.skill + ' | Search Depth ' + profile.depth + ' | Randomization Factor ' + profile.random);
+}
+
+// == Event handlers ==
+// Previous category button
+function previousCategory() {
+    if (currentCategoryIndex > 0) {
+        currentCategoryIndex--;
+        updateDifficultyCategory();
+    }
+}
+catPrevious.addEventListener('click', previousCategory);
+
+// Next category button
+function nextCategory() {
+    if (currentCategoryIndex < difficultyCategories.length - 1) {
+        currentCategoryIndex++;
+        updateDifficultyCategory();
+    }
+}
+catNext.addEventListener('click', nextCategory);
+
+// Elo slider change
+function eloSliderChange() {
+    var newElo = parseInt(eloSlider.value);
+    updateEloValue(newElo);
+    updateEngineSettings(newElo);
+}
+eloSlider.addEventListener('input', eloSliderChange);
+
+// == UI initialization ==
+updateDifficultyCategory();
+updateEngineSettings(currentElo);
 
 // ==========  Start new game  ==========
 // Reset the game to the starting position

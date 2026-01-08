@@ -29,18 +29,20 @@
     <!-- Menu options -->
     <div id="menuContainer" class="menu-container">
 
-        <!-- Bot difficulty drop-down selection -->
-        <div class="menu-item">
-            <label for="difficulty">Select Bot <u>D</u>ifficulty: </label>
-            <label data-tooltip="Change the difficulty of the chess engine">
-                <select id="difficulty" class="menu-item-interactive">
-                    <option value="0" selected>1 - Easiest</option>
-                    <option value="5">2 - Easy</option>
-                    <option value="10">3 - Medium</option>
-                    <option value="15">4 - Hard</option>
-                    <option value="20">5 - Impossible</option>
-                </select>
-            </label>
+        <!-- Bot difficulty selection -->
+        <div class="menu-item difficulty-container ">
+            <!-- Category -->
+            <div class="category-selector">
+                <button id="catPrevious" class="cat-arrow">&lt;</button>
+                <span id="categoryDisplay"></span>
+                <button id="catNext" class="cat-arrow">&gt;</button>
+            </div>
+
+            <!-- Elo -->
+            <div class="elo-selector">
+                <input type="range" id="eloSlider" min="100" max="500" step="100" value="100">
+                <span id="eloDisplay">Elo: 100</span>
+            </div>
         </div>
 
         <!-- Player color radio buttons -->
