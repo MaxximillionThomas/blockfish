@@ -113,6 +113,17 @@ const botProfiles = {
 var currentCategoryIndex = 0; 
 var currentElo = 100;  
 
+// Store move judgements
+var moveJudgements = [];
+
+// Filter state: tracks which move types are visible in the PGN
+var moveFilters = {
+    'best': true,
+    'good': true,
+    'bad': true,
+    'blunder': true
+};
+
 // =============================
 // ==  Bot engine  =============
 // =============================
@@ -313,6 +324,9 @@ hintEngine.onmessage = function(event) {
             // Increment the respective judgement count
             var type = judgement.text.toLowerCase();
             if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
+
+            // Store the judgement for later use in filtering (HTML data-index is 1-based)
+            moveJudgements.push({ index: analysisIndex + 1, type: type });
 
             // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
             var dotClass = judgement.class.replace('judgement', 'dot');
@@ -892,17 +906,16 @@ function triggerMoveAnalysis() {
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
     if (analysisIndex >= game.history().length) { 
-        // Build a new table for storing the move quality types
-        var summary = '<span>Move summary:</span>';
-        summary += '<span class="summary-badge judgement-best">' + analysisCounts.best + ' BEST</span>';
-        summary += '<span class="summary-badge judgement-good">' + analysisCounts.good + ' GOOD</span>';
-        summary += '<span class="summary-badge judgement-bad">' + analysisCounts.bad + ' BAD</span>';
-        summary += '<span class="summary-badge judgement-blunder">' + analysisCounts.blunder + ' BLUNDER</span>';
-        document.getElementById('analysisText').innerHTML = summary;
+        // Hide loading bar, show results
+        document.getElementById('analysisLoader').style.display = 'none';
+        document.getElementById('analysisResult').style.display = 'flex';
 
         // End the loading sound
         sounds.loading.pause();
         sounds.loading.currentTime = 0;
+
+        // Render the clickable summary badges
+        renderAnalysisSummary();
 
         return;
     }
@@ -913,6 +926,69 @@ function triggerMoveAnalysis() {
     // Obtain the best move for the targeted turn
     hintEngine.postMessage('position fen ' + fen);
     hintEngine.postMessage('go depth ' + hintSearchDepth);
+}
+
+// Rander the clickable badges for the analysis summary
+function renderAnalysisSummary() {
+    var html = '';
+
+    // Iterate through each move judgement type
+    for (var type in analysisCounts) {
+        var count = analysisCounts[type];
+
+        // Only render types that occurred at least once
+        if (count > 0) {
+            var isEnabled = moveFilters[type];
+            var disabledClass = isEnabled ? '' : 'filter-disabled';
+
+            // Construct the class for the badge (styling)
+            var badgeClass = 'judgement-label summary-badge judgement-' + type + ' ' + disabledClass;
+
+            // Generate the badge HTML
+            html += '<span class="' + badgeClass + '" ' +
+                        'onclick="toggleMoveFilter(\'' + type + '\')">' + 
+                        count + ' ' + type + 
+                    '</span>';
+        }
+    }
+
+    // Update the html element
+    document.getElementById('analysisSummary').innerHTML = html;
+
+    // Match the move history display to the current filter settings
+    applyMoveVisibility();
+}
+
+// Toggle the filter state for a specific move judgement type
+function toggleMoveFilter(type) {
+    // Invert the filter state
+    moveFilters[type] = !moveFilters[type];
+    // Refresh the UI
+    renderAnalysisSummary();
+    // Play sound effect
+    playSound('select');
+}
+
+// Show or hide moves in the PGN based on the current filter settings
+function applyMoveVisibility() {
+    // Iterate through each move judgement - structure is { index: number, type: string }
+    moveJudgements.forEach(function(judgement) {
+        // Determine whose move it is (judgement list indexing is 1-based)
+        var isWhiteMove = (judgement.index % 2 !== 0);
+        var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+
+        // Only filter the player's moves
+        if (isPlayerMove) {
+            // Locate the move within the table, based on the judgement list index (matches data-index)
+            var $moveElement = $('.move-link[data-index="' + judgement.index + '"]');
+            // Check if the move type is enabled in the filters
+            if (moveFilters[judgement.type]) {
+                $moveElement.removeClass('move-dimmed');
+            } else {
+                $moveElement.addClass('move-dimmed');
+            }
+        }
+    });
 }
 
 // ==========  Board setup  ==========
@@ -1043,9 +1119,11 @@ function startNewGame() {
         return;
     }
 
-    // Prevent game review processes
+    // Reset game review state
     reviewingGame = false;
     document.getElementById('moveHistoryAnalysisContainer').style.display = 'none';
+    moveJudgements = [];
+    $('#analysisSummary').empty();
 
     // Reset visuals
     closeGameOverModal();
@@ -1190,13 +1268,13 @@ function reviewGame() {
     // Move type counts
     $('.move-dot').remove();
     analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
+    // Move judgements
+    moveJudgements = [];
     // Analysis loading bar
-    var loadingHtml = '';
-    loadingHtml += '<div class="analysis-loading-text">Analyzing moves... <span id="analysisPercent">0</span>%</div>';
-    loadingHtml += '<div class="analysis-progress-container">';
-    loadingHtml += '<div id="analysisProgressBar" class="analysis-progress-fill"></div>';
-    loadingHtml += '</div>';
-    document.getElementById('analysisText').innerHTML = loadingHtml;
+    document.getElementById('analysisLoader').style.display = 'flex';
+    document.getElementById('analysisResult').style.display = 'none';
+    document.getElementById('analysisPercent').innerText = '0';
+    document.getElementById('analysisProgressBar').style.width = '0%';
 
     // == Hide controls ==
     optionsModalBtn.style.display = 'none';
@@ -1206,6 +1284,21 @@ function reviewGame() {
 
     // == Display move history ==
     document.getElementById('moveHistoryAnalysisContainer').style.display = 'flex';
+
+    // == Dim opponent moves ==
+    $('.move-link').each(function() {
+        var index = parseInt($(this).attr('data-index'));
+
+        // Determine whose move it is (data-index is 1-based)
+        var isWhiteMove = (index % 2 !== 0);
+        var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+
+        // Dim moves
+        if (!isPlayerMove) {
+            $(this).addClass('move-dimmed');
+        }
+    });
+
 
     // == Trigger batch move analysis ==
     analyzeGame();
@@ -1493,7 +1586,7 @@ function navigationUpdate() {
     // Highlight best moves automatically if in game review mode
     if (reviewingGame && viewingIndex > 0) {
         // Clear existing move judgement
-        $('.judgement-label').remove();
+        $('#status .judgement-label').remove();
 
         // Get the index of the previous move
         var moveIndex = viewingIndex - 1;

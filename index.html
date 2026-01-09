@@ -111,11 +111,25 @@
 
             <!-- Analysis summary -->
             <div id="analysisPane" class="analysis-pane">
-                <div id="analysisText"></div>
+
+                <!--  Loading bar -->
+                <div id="analysisLoader">
+                    <div class="analysis-loading-text">Analyzing moves...<span id="analysisPercent">0</span>%</div>
+                    <div class="analysis-progress-container">
+                        <div id="analysisProgressBar" class="analysis-progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Move summary -->
+                <div id="analysisResult">
+                    <span class="analysis-header">Move Summary:</span>
+                    <div id="analysisSummary" class="analysis-summary"></div>
+                </div>
             </div>
 
             <!-- Move history -->
-            <div id="pgn" class="pgn">
+            <!-- Header -->
+            <div class="move-history-header">
                 <table class="move-table">
                     <thead>
                         <tr>
@@ -124,6 +138,12 @@
                             <th>Black</th>
                         </tr>
                     </thead>
+                </table>
+            </div>
+
+            <!-- Moves -->
+            <div id="pgn" class="pgn">
+                <table class="move-table">
                     <tbody id="moveHistoryBody">
                     </tbody>
                 </table>

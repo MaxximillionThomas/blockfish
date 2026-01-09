@@ -321,7 +321,7 @@ input:checked + .slider:before {
     font-weight: bold;
     /* Sits above the white/grey bars */
     z-index: 2; 
-    pointer-events: none; /* needed? */
+    pointer-events: none; 
 }
 
 /* White is winning */
@@ -388,7 +388,7 @@ input:checked + .slider:before {
 }
 
 /* =============================
-// ==  Move history analysis  ==
+// ==  Move history + analysis =
 // ============================= */
 
 /* The parent wrapper */
@@ -403,33 +403,26 @@ input:checked + .slider:before {
     border-style: solid;
 }
 
-/* The analysis summary */
+/* Shows EITHER loading bar or results */
 .analysis-pane {
     padding: 10px;
     border-bottom: 2px solid gray;
-    text-align: center;
-    min-height: 140px; 
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    min-height: 160px; 
+    display: block;
 }
 
-/* Text element populating the analysis pane */
-#analysisText {
-    margin: 0;
-    font-weight: bold;
-    line-height: 1.5;
-    /* Stack badges vertically */
+/* =============================
+// ==  Analysis loading bar ====
+// ============================= */
+
+/* Loading bar container */
+#analysisLoader {
+    height: 160px; 
     display: flex;
     flex-direction: column;
-    gap: 5px; 
-}
-
-/* Analysis div */
-.analysis-loading-text {
-    margin-bottom: 5px;
-    font-size: 14px;
-    font-weight: bold;
+    align-items: center;
+    justify-content: center; 
+    gap: 10px;
 }
 
 /* Loading progress bar */
@@ -455,6 +448,70 @@ input:checked + .slider:before {
     transition: width 0.1s linear; 
 }
 
+/* Analysis div */
+.analysis-loading-text {
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* =============================
+// ==  Analysis results ========
+// ============================= */
+
+/* Results container */
+#analysisResult {
+    display: none;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Stick the header to the TOP */
+    justify-content: flex-start; 
+    gap: 10px;
+}
+
+.analysis-header {
+    font-weight: bold;
+}
+
+/* The container for the Best/Good/Blunder badges */
+#analysisSummary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; 
+    width: 100%;
+    align-items: center;
+    justify-content: center; 
+}
+
+.summary-badge {
+    cursor: pointer;
+    box-shadow: 
+        0 0 0 1.5px #717171,
+        1px 1px 1px 1px #000000 !important; 
+}
+
+.summary-badge:active {
+    transform: translateY(1px);
+}
+
+/* Visual state when a filter is turned off */
+.filter-disabled {
+    opacity: 50%;  
+}
+
+/* Dim the moves in the table */
+.move-dimmed {
+    color: #bdbcbc !important; 
+    transition: color 0.2s;
+}
+
+/* Fade out the colored dot next to the move */
+.move-dimmed .move-dot {
+    opacity: 0.3; 
+}
+
 /* Analysis summary badges (mini versions of the labels) */
 .summary-badge {
     padding: 2px 6px;
@@ -463,6 +520,17 @@ input:checked + .slider:before {
     font-size: 12px;
     margin: 0 3px;
     display: inline-block;
+}
+
+/* =============================
+// ==  Move history  ===========
+// ============================= */
+
+/* Container for the static header (   White   Black   ) */
+.move-history-header {
+    background-color: #e0e0e0;
+    border-bottom: 2px solid #999;
+    padding-right: 12px; 
 }
 
 /* Move history element - updates with the subsequent styles through js */
@@ -479,13 +547,12 @@ input:checked + .slider:before {
 .move-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 /* Table headers */
 .move-table th {
     background-color: #e0e0e0;
-    position: sticky;
-    top: 0;
     padding: 10px;
     border-bottom: 1px solid #999;
     font-size: 14px;
@@ -499,6 +566,7 @@ input:checked + .slider:before {
 }
 
 /* Content centering */
+.move-history-header,
 .move-table th,
 .move-table td {
     text-align: center;
@@ -512,6 +580,14 @@ input:checked + .slider:before {
 .move-table tr:nth-child(odd) {
     background-color: #f2f2f2;
 }
+
+/* Enforce Column Widths on the Body to match the Header */
+.move-table th:nth-child(1),
+.move-table td:nth-child(1) { width: 20%; } /* Move Number */
+.move-table th:nth-child(2),
+.move-table td:nth-child(2) { width: 40%; } /* White */
+.move-table th:nth-child(3),
+.move-table td:nth-child(3) { width: 40%; } /* Black */
 
 /* Clickable Move Links */
 .move-link {
@@ -710,12 +786,13 @@ input:checked + .slider:before {
     font-weight: bold;
     font-size: 12px;
     padding: 3px 6px;
-    border-radius: 4px;
+    border: 1px solid rgb(178, 178, 178);
+    border-radius: 3px;
     color: white;
     margin-left: 8px;
     display: inline-block;
     text-transform: uppercase;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 1.5px #717171; 
     vertical-align: middle;
 }
 
@@ -738,7 +815,6 @@ input:checked + .slider:before {
 .dot-good { background-color: #089f00; } /* Dark green */
 .dot-bad { background-color: #ffa500; } /* Orange */
 .dot-blunder { background-color: #ff0000; } /* Red */
-
 
 /* =============================
 // ==  Animation  =============
