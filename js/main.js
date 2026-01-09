@@ -40,8 +40,15 @@ var sounds = {
     capture: new Audio('audio/capture.mp3'),
     check: new Audio('audio/move-check.mp3'),
     end: new Audio('audio/game-end.mp3'),
-    hover: new Audio('audio/hover.mp3')
+    hover: new Audio('audio/hover.mp3'),
+    modal: new Audio('audio/modal.mp3'),
+    loading: new Audio('audio/loading.mp3'),
+    select: new Audio('audio/select.mp3'),
+    hint: new Audio('audio/hint.mp3')
 };
+
+// Ensure loading sound loops while active
+sounds.loading.loop = true;
 
 // Initialize the Stockfish chess engine
 var botEngine = new Worker('js/stockfish.js');
@@ -549,6 +556,7 @@ function removeAllHighlights() {
 // Enable and disable legal move highlighting ability
 function toggleHighlights() {
     highlightsEnabled = !highlightsEnabled;
+    playSound('select');
 }
 
 // Handle the logic of square clicks under different scenarios
@@ -679,9 +687,10 @@ $('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
 // ==========  Functions  ==========
 // Toggle on/off game controls based on game state (true = cannot be changed mid-game)
 function toggleGameControls(gameInProgress) {
-    // Manu options
-    // Difficulty drop-down
-    // document.getElementById('difficulty').disabled = gameInProgress; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // Difficulty select dropdown
+    document.getElementById('catPrevious').disabled = gameInProgress;
+    document.getElementById('catNext').disabled = gameInProgress;
+    document.getElementById('eloSlider').disabled = gameInProgress;
     // Color radio buttons
     var colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
@@ -883,7 +892,6 @@ function triggerMoveAnalysis() {
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
     if (analysisIndex >= game.history().length) { 
-
         // Build a new table for storing the move quality types
         var summary = '<span>Move summary:</span>';
         summary += '<span class="summary-badge judgement-best">' + analysisCounts.best + ' BEST</span>';
@@ -891,6 +899,10 @@ function triggerMoveAnalysis() {
         summary += '<span class="summary-badge judgement-bad">' + analysisCounts.bad + ' BAD</span>';
         summary += '<span class="summary-badge judgement-blunder">' + analysisCounts.blunder + ' BLUNDER</span>';
         document.getElementById('analysisText').innerHTML = summary;
+
+        // End the loading sound
+        sounds.loading.pause();
+        sounds.loading.currentTime = 0;
 
         return;
     }
@@ -924,8 +936,6 @@ updateStatus();
 // =============================
 
 // ==========  Difficulty selection  ==========
-// difficultyElement = document.getElementById('difficulty');
-// difficultyElement.addEventListener('change', setBotEngineDifficulty);
 var catPrevious = document.getElementById('catPrevious');
 var categoryDisplay = document.getElementById('categoryDisplay');
 var catNext = document.getElementById('catNext');
@@ -989,6 +999,7 @@ function previousCategory() {
     if (currentCategoryIndex > 0) {
         currentCategoryIndex--;
         updateDifficultyCategory();
+        playSound('select');
     }
 }
 catPrevious.addEventListener('click', previousCategory);
@@ -998,6 +1009,7 @@ function nextCategory() {
     if (currentCategoryIndex < difficultyCategories.length - 1) {
         currentCategoryIndex++;
         updateDifficultyCategory();
+        playSound('select');
     }
 }
 catNext.addEventListener('click', nextCategory);
@@ -1007,12 +1019,21 @@ function eloSliderChange() {
     var newElo = parseInt(eloSlider.value);
     updateEloValue(newElo);
     updateEngineSettings(newElo);
+    playSound('select');
 }
 eloSlider.addEventListener('input', eloSliderChange);
 
 // == UI initialization ==
 updateDifficultyCategory();
 updateEngineSettings(currentElo);
+
+// ==========  Color selection  ==========
+var colorRadios = document.querySelectorAll('input[name="color"]');
+colorRadios.forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        playSound('select');
+    });
+});
 
 // ==========  Start new game  ==========
 // Reset the game to the starting position
@@ -1091,6 +1112,9 @@ var gameReviewBtn = document.getElementById("gameReviewBtn");
 
 // Show the game over modal with the result and reason 
 function openGameOverModal(result, reason) {
+    // Play modal-opening sound
+    playSound('modal');
+
     // win/loss/draw
     gameOverModalText.innerText = result;
     // checkmate/stalemate/repetition
@@ -1105,7 +1129,7 @@ rematchBtn.addEventListener('click', startNewGame);
 
 // Close the Game Over modal
 function closeGameOverModal() {
-    // Close the modal
+    playSound('select');
     gameOverModal.style.display = "none";
 }
 
@@ -1134,7 +1158,8 @@ function exitToMenu() {
     // Reset controls and refocus
     toggleGameControls(false);
     updateStatus();
-    document.getElementById('title').focus();
+    document.getElementById('catNext').focus();
+    console.log('Returned to main menu.');
 }
 
 // Bind the exit to menu function to the close button
@@ -1152,6 +1177,9 @@ function gameOverModalStatus() {
 // Review the previous game
 function reviewGame() {
     reviewingGame = true;
+
+    // Play loading sound
+    playSound('loading');
 
     // == Reset board visuals == 
     closeGameOverModal();
@@ -1204,6 +1232,7 @@ function openOptionsModal() {
         return;
     }
 
+    playSound('modal');
     optionsModal.style.display = 'flex';
 }
 // Bind the open options modal function to the options button
@@ -1212,6 +1241,7 @@ optionsModalBtn.addEventListener('click', openOptionsModal);
 // Close the options modal
 function closeOptionsModal() {
     optionsModal.style.display = 'none';
+    playSound('select');
 }
 // Bind the close function to the close button
 optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
@@ -1246,6 +1276,9 @@ function setMovingPreference(enableClicking, enableDragging) {
         selectedSquare = null;
         removeCurrentMoveHighlights();
     }
+
+    // Play selection sound
+    playSound('select');
 }
 // Bind the moving preference function to the moveving preference radiobuttons
 clickMovingPreference.addEventListener('change', function() { setMovingPreference(true, false); });
@@ -1260,11 +1293,13 @@ var yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
 
 // Open yesNoModal
 function openYesNoModal() {
+    playSound('modal');
     yesNoModal.style.display = 'flex';
 }
 
 // Close yesNoModal
 function closeYesNoModal() {
+    playSound('select');
     yesNoModal.style.display = 'none';
 }
 
@@ -1562,6 +1597,8 @@ function getHint() {
     // Request the best move from the hint engine
     hintEngine.postMessage('position fen ' + game.fen());
     hintEngine.postMessage('go depth ' + hintSearchDepth);
+
+    playSound('hint');
 }
 // Bind the get hint function to the hint button
 hintBtn.addEventListener('click', getHint);
@@ -1572,7 +1609,7 @@ resignBtn.disabled = true;
 
 // Resign the game for a loss
 function resignGame() {
-    yesNoModal.style.display = 'flex';
+    openYesNoModal();
 
 }
 // Bind the resign function to the resign button
@@ -1592,6 +1629,7 @@ function toggleEvalBar() {
     } else {
         evalContainer.style.display = "none";
     }
+    playSound('select');
 }
 // Bind the eval toggle function to the eval toggle button
 optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
@@ -1878,13 +1916,35 @@ console.log(event.key);
         // Navigate back
         case 'ArrowLeft':
         case 'Home':
-            navigateBack();
+            if (gameActive || reviewingGame) {
+                navigateBack();
+            } else {
+                var catPrevious = document.getElementById('catPrevious');
+                var catNext = document.getElementById('catNext');
+                if (catPrevious === document.activeElement || catNext === document.activeElement) {
+                    previousCategory();
+                    if (currentCategoryIndex === 0) {
+                        catNext.focus();   
+                    }
+                }
+            }
             break;
 
         // Navigate forward
         case 'ArrowRight':
         case 'End':
-            navigateForward();
+            if (gameActive || reviewingGame) {
+                navigateForward();
+            } else {
+                var catPrevious = document.getElementById('catPrevious');
+                var catNext = document.getElementById('catNext');
+                if (catPrevious === document.activeElement || catNext === document.activeElement) {
+                    nextCategory();
+                    if (currentCategoryIndex === difficultyCategories.length - 1) {
+                        catPrevious.focus();   
+                    }
+                }
+            }
             break;
    
         case 'b':
@@ -1894,6 +1954,7 @@ console.log(event.key);
                 blackBtn = document.querySelector('input[name="color"][value="black"]'); 
                 blackBtn.checked = true;
                 blackBtn.focus();
+                playSound('select');
 
             // Moving preference - click
             } else {
@@ -1912,6 +1973,7 @@ console.log(event.key);
             whiteBtn = document.querySelector('input[name="color"][value="white"]');
             whiteBtn.checked = true;
             whiteBtn.focus();
+            playSound('select');
             break;
         
         // Start new game
@@ -1946,8 +2008,8 @@ console.log(event.key);
             break;
 
         // Open options modal
-        case 'o':
-        case 'O':
+        case 'p':
+        case 'p':
             openOptionsModal();
             break;
 
@@ -1955,7 +2017,7 @@ console.log(event.key);
         case 'D':
             // Difficulty
             if (!optionsModalStatus()) {
-                document.getElementById('difficulty').focus();
+                document.getElementById('catNext').focus();
 
             // Moving preference - click
             } else {

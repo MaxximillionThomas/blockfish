@@ -42,7 +42,7 @@ body {
 
 .subtitle {
     font-size: 16px;
-    margin-bottom: 35px;
+    margin-bottom: 30px;
     /* 3D block shadow (cracked stone effect) */
     text-shadow: 
         1px 1px 0px #383838, /* Dark gray shadow side */
@@ -60,8 +60,8 @@ body {
     margin-bottom: 30px;
 }
 
-.menu-item {
-    margin-bottom: 10px;
+.menu-row {
+    margin-bottom: 15px;
 }
 
 .menu-item-interactive {
@@ -79,7 +79,7 @@ body {
     gap: 20px;
     width: 100%;
     /* Prevents it from getting too wide */
-    max-width: 500px; 
+    max-width: 550px; 
 }
 
 /* Category Selector (Arrows + Text) */
@@ -98,8 +98,8 @@ body {
     text-align: center;
 }
 
-/* Arrow Buttons */
-.cat-arrow {
+/* Menu buttons */
+.menu-button {
     border: 1px solid gray;
     border-radius: 4px;
     cursor: pointer;
@@ -107,7 +107,7 @@ body {
     padding: 2px 8px;
 }
 
-.cat-arrow:hover {
+.menu-button:hover {
     background: #ddd;
 }
 
@@ -661,6 +661,20 @@ input:checked + .slider:before {
     /* Always appear above other elements */
     z-index: 9999;
     opacity: 1;           
+}
+
+/* Override for bottom-positioned tooltip */
+[data-tooltip].tooltip-bottom::after {
+    /* 1. Reset specific "Right" side positioning */
+    /* Move to horizontal center */
+    left: 50%;    
+    /* Move to the bottom edge */         
+    top: 100%;             
+    margin-left: 0;        
+    margin-top: 10px;      
+
+    /* 2. Change the transform to center it Horizontally instead of Vertically */
+    transform: translateX(-50%);
 }
 
 /* =============================

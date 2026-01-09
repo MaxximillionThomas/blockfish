@@ -30,23 +30,24 @@
     <div id="menuContainer" class="menu-container">
 
         <!-- Bot difficulty selection -->
-        <div class="menu-item difficulty-container ">
+        <div class="menu-row difficulty-container ">
+            <div><u>D</u>ifficulty:</div>
             <!-- Category -->
             <div class="category-selector">
-                <button id="catPrevious" class="cat-arrow">&lt;</button>
+                <button id="catPrevious" class="menu-button" data-tooltip="Lower the difficulty category">&lt;</button>
                 <span id="categoryDisplay"></span>
-                <button id="catNext" class="cat-arrow">&gt;</button>
+                <button id="catNext" class="menu-button" data-tooltip="Increase the difficulty category">&gt;</button>
             </div>
 
             <!-- Elo -->
             <div class="elo-selector">
-                <input type="range" id="eloSlider" min="100" max="500" step="100" value="100">
-                <span id="eloDisplay">Elo: 100</span>
+                <span data-tooltip="Adjust the bot Elo (skill level)" class="tooltip-bottom"><input type="range" id="eloSlider" min="100" max="500" step="100" value="100"></span>
+                <span id="eloDisplay" >Elo: 100</span>
             </div>
         </div>
 
         <!-- Player color radio buttons -->
-        <div class="menu-item">
+        <div class="menu-row">
             <label for="color">Play as: </label>
             <label data-tooltip="Play as White"><input type="radio" id="white" name="color" value="white" checked class="menu-item-interactive"><u>W</u>hite</label>
             <label data-tooltip="Play as Black"><input type="radio" id="black" name="color" value="black" class="menu-item-interactive"><u>B</u>lack</label>
@@ -54,8 +55,7 @@
 
         <!-- Start new game button -->
         <div>
-            <button id="startBtn" class="menu-item-interactive"
-                data-tooltip="Start a new game using the current settings"><u>S</u>tart New Game</button>
+            <button id="startBtn" class="menu-button" data-tooltip="Start a new game using the current settings"><u>S</u>tart New Game</button>
         </div>
 
     </div>
@@ -69,7 +69,7 @@
             <!-- Turn status & options -->
             <div class="header-row">
                 <div id="status" class="status">Turn: Loading...</div>
-                <button id="optionsBtn" class="control-btn" data-tooltip="View in-game options (O key)">☰</button>
+                <button id="optionsBtn" class="control-btn" data-tooltip="Manage preferences (P key)">☰</button>
             </div>
 
             <!-- Evaluation bar & chess board   -->
