@@ -157,11 +157,11 @@ botEngine.onmessage = function(event) {
             // Isolate mate score (example output = '3')
             var mateIn = parseInt(mateString.split(' ')[0]);
 
-            // Set the score to a large number to max out the evaluation bar visual effect
+            // Encode mate as large centipawn value. Closer mates have higher values
             if (mateIn > 0) {
-                score = 10000;
+                score = 20000 - mateIn;
             } else {
-                score = -10000;
+                score = -20000 - mateIn;
             }
         }
 
@@ -297,11 +297,16 @@ hintEngine.onmessage = function(event) {
 
         // Mate score
         if (line.includes('mate')) {
-            var mateString = line.split('mate ')[1];
             // Engine produces mate in format 'score mate 5' (engine winning), 'score mate -3' (engine losing)
+            var mateString = line.split('mate ')[1];
             var mateIn = parseInt(mateString.split(' ')[0]);
+
             // Convert mate to a large centipawn value for consistency
-            score = (mateIn > 0) ? 10000 : -10000;
+            if (mateIn > 0) {
+                score = 20000 - mateIn;
+            } else {    
+                score = -20000 - mateIn;
+            }   
 
         // Centipawn score
         } else if (line.includes('cp')) {
@@ -1810,7 +1815,7 @@ optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
 function updateEvalBar(centipawns) {
     var evalBar = document.getElementById('evalBar');
     var evalScore = document.getElementById('evalScore');
-    var mateIncoming = Math.abs(centipawns) > 5000 ? true : false
+    var mateIncoming = Math.abs(centipawns) > 15000
     var barHeight = calculateEvaluation(centipawns);
 
     // Keep the bar within a fixed range for visual clarity
@@ -1838,10 +1843,11 @@ function updateEvalBar(centipawns) {
     // Give meaning to the centipawn advantage
     evalScoreText = '';
     if (mateIncoming) {
-        evalScoreText = 'M';
+        var movesToMate = 20000 - Math.abs(centipawns);
+        evalScoreText = 'M' + movesToMate;
     } else {
         var pawnAdvantage = Math.abs(centipawns) / 100;
-        // Formated to one decimal place
+        // Formatted to one decimal place
         evalScoreText = pawnAdvantage.toFixed(1);
     }
 
