@@ -32,6 +32,9 @@ var currentEval = 0;
 var hintHistory = [];
 var analysisIndex = 0;
 var analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
+var accuracyList = [];
+var currentGameAccuracy = 0;
+var tempBestEval = 0;
 
 // Store sounds used for game actions
 var sounds = {
@@ -123,6 +126,8 @@ var moveFilters = {
     'bad': true,
     'blunder': true
 };
+
+
 
 // =============================
 // ==  Bot engine  =============
@@ -284,6 +289,31 @@ hintEngine.postMessage('setoption name Skill Level value ' + hintDifficulty);
 
 // Set up responses from the engine
 hintEngine.onmessage = function(event) {
+    var line = event.data;
+
+    // == Capture the score ==
+    if (line.startsWith('info') && line.includes('score')) {
+        var score = 0;
+
+        // Mate score
+        if (line.includes('mate')) {
+            var mateString = line.split('mate ')[1];
+            // Engine produces mate in format 'score mate 5' (engine winning), 'score mate -3' (engine losing)
+            var mateIn = parseInt(mateString.split(' ')[0]);
+            // Convert mate to a large centipawn value for consistency
+            score = (mateIn > 0) ? 10000 : -10000;
+
+        // Centipawn score
+        } else if (line.includes('cp')) {
+            var centipawnString = line.split('score cp ')[1];
+            score = parseInt(centipawnString.split(' ')[0]);
+        }
+
+        // Store the score until 'bestmove' is received
+        tempBestEval = score;
+    }
+
+    // == Best move ===========
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
@@ -305,21 +335,49 @@ hintEngine.onmessage = function(event) {
 
         // A: Reviewing game
         if (reviewingGame) {
-            // == Store the best move into the history array == 
+            // == Evaluation score == 
+            // Store the best move into the history array
             var bestMoveObject = { from: source, to: target };
             hintHistory[analysisIndex] = bestMoveObject;
 
-            // == Display move quality judgement dot ==
             // Get the move played
             var history = game.history({ verbose: true });
             var movePlayed = history[analysisIndex];
+            var turnColor = movePlayed.color; 
 
             // Get evaluations
             var prevEval = evalHistory[analysisIndex];
             var currEval = evalHistory[analysisIndex + 1];
 
+            // Get the best move's evaluation score
+            var bestEvalWhitePerspective = tempBestEval;
+            if (turnColor === 'b') {
+                bestEvalBlackPerspective = -tempBestEval;
+            }
+
+            // Convert evaluation score to Win Percentage
+            var bestWinChance = calculateEvaluation(bestEvalWhitePerspective);
+            var playedWinChance = calculateEvaluation(currEval);
+
+            // Adjust perspective for black (if 75% for white, then 25% for black)
+            if (turnColor === 'b') {
+                bestWinChance = 100 - bestWinChance;
+                playedWinChance = 100 - playedWinChance;
+            }
+
+            // Calculate the accuracy of winning chance captured relative to the best move
+            // (E.g. best move = 50% win chance, played move = 40% win chance -> 100 - (50 - 40) = 90% accuracy)
+            var accuracy = 100 - (bestWinChance - playedWinChance);
+            // The engine can sometimes rate moves above best move
+            if (accuracy > 100) accuracy = 100;
+
+            // Store the accuracy value
+            accuracyList.push(accuracy);
+
+
+            // == Move quality judgement dot ==
             // Determine the move quality judgement
-            var judgement = determineMoveJudgement(movePlayed, bestMoveObject, prevEval, currEval, movePlayed.color);
+            var judgement = determineMoveJudgement(movePlayed, bestMoveObject, prevEval, currEval, turnColor);
 
             // Increment the respective judgement count
             var type = judgement.text.toLowerCase();
@@ -905,17 +963,36 @@ function triggerMoveAnalysis() {
 
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
-    if (analysisIndex >= game.history().length) { 
+    if (analysisIndex >= game.history().length) {
+        var totalAccuracy = 0;
+        var myMoveCount = 0;
+
+        // Count only the player's moves for accuracy
+        for (var i = 0; i < accuracyList.length; i++) {
+            var isWhiteMove = (i % 2 === 0);
+            var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+            if (isPlayerMove) {
+                totalAccuracy += accuracyList[i];
+                myMoveCount++;
+            }
+        }
+
+        // Calculate average accuracy
+        var averageAccuracy = 0;
+        if (myMoveCount > 0) {
+            averageAccuracy = Math.round(totalAccuracy / myMoveCount);
+        }
+
         // Hide loading bar, show results
         document.getElementById('analysisLoader').style.display = 'none';
         document.getElementById('analysisResult').style.display = 'flex';
+        renderAnalysisSummary();
+        var accuracyText = document.getElementById('accuracyText');
+        accuracyText.innerHTML = '<span class="analysis-footer">Average accuracy: ' + averageAccuracy + '%</span>';
 
         // End the loading sound
         sounds.loading.pause();
         sounds.loading.currentTime = 0;
-
-        // Render the clickable summary badges
-        renderAnalysisSummary();
 
         return;
     }
@@ -1268,8 +1345,10 @@ function reviewGame() {
     // Move type counts
     $('.move-dot').remove();
     analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
-    // Move judgements
+    // Move judgements and accuracy
     moveJudgements = [];
+    accuracyList = [];
+    currentGameAccuracy = 0;
     // Analysis loading bar
     document.getElementById('analysisLoader').style.display = 'flex';
     document.getElementById('analysisResult').style.display = 'none';

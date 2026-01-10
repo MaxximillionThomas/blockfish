@@ -407,7 +407,7 @@ input:checked + .slider:before {
 .analysis-pane {
     padding: 10px;
     border-bottom: 2px solid gray;
-    min-height: 160px; 
+    min-height: 170px; 
     display: block;
 }
 
@@ -471,8 +471,14 @@ input:checked + .slider:before {
     gap: 10px;
 }
 
-.analysis-header {
+.analysis-header,
+.analysis-footer {
     font-weight: bold;
+}
+
+.analysis-footer {
+    /* Positioned to the bottom */
+    margin-top: auto;
 }
 
 /* The container for the Best/Good/Blunder badges */
