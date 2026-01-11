@@ -10,34 +10,33 @@
 // =============================
 
 // Establish the logic and rules of the chess game
-var game = new Chess();
-var playerColor = 'white';
-var gameActive = false;
-var selectedSquare = null;
-var squareClass = 'square-55d63';
-var gettingHint = false;
-var reviewingGame = false;
+const game = new Chess();
+let playerColor = 'white';
+let gameActive = false;
+let selectedSquare = null;
+let gettingHint = false;
+let reviewingGame = false;
 
 // Establish preference trackers
-var highlightsEnabled = true;
-var clickMovesEnabled = true;
-var dragMovesEnabled = true;
-var evalBarEnabled = true;
+let highlightsEnabled = true;
+let clickMovesEnabled = true;
+let dragMovesEnabled = true;
+let evalBarEnabled = true;
 
 // Store move data history for navigation and analysis
-var fenHistory = [];
-var viewingIndex = 0;
-var evalHistory = [0];
-var currentEval = 0;
-var hintHistory = [];
-var analysisIndex = 0;
-var analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
-var accuracyList = [];
-var currentGameAccuracy = 0;
-var tempBestEval = 0;
+let fenHistory = [];
+let viewingIndex = 0;
+let evalHistory = [0];
+let currentEval = 0;
+let hintHistory = [];
+let analysisIndex = 0;
+let analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+let accuracyList = [];
+let currentGameAccuracy = 0;
+let tempBestEval = 0;
 
 // Store sounds used for game actions
-var sounds = {
+const sounds = {
     start: new Audio('audio/game-start.mp3'),
     move: new Audio('audio/move-self.mp3'),
     capture: new Audio('audio/capture.mp3'),
@@ -54,10 +53,10 @@ var sounds = {
 sounds.loading.loop = true;
 
 // Initialize the Stockfish chess engine
-var botEngine = new Worker('js/stockfish.js');
+const botEngine = new Worker('js/stockfish.js');
 
 // Engine timeout will be later used for resetting the engine
-var botEngineTimeout = null;
+let botEngineTimeout = null;
 
 /* 
 Configure engine starting settings 
@@ -65,8 +64,8 @@ Configure engine starting settings
     Search depth determines how many moves ahead the engine will consider
     Randomization factor determines how often the engine will make a sub-optimal move (for lower difficulties)
 */
-var botSearchDepth = 1;
-var randomizationFactor = 0;   
+let botSearchDepth = 1;
+let randomizationFactor = 0;   
 
 // Bot difficulty categories
 const difficultyCategories = [
@@ -113,14 +112,14 @@ const botProfiles = {
 };
 
 // Starting configurations
-var currentCategoryIndex = 0; 
-var currentElo = 100;  
+let currentCategoryIndex = 0; 
+let currentElo = 100;  
 
 // Store move judgements
-var moveJudgements = [];
+let moveJudgements = [];
 
 // Filter state: tracks which move types are visible in the PGN
-var moveFilters = {
+let moveFilters = {
     'best': true,
     'excellent': true,
     'good': true,
@@ -136,9 +135,15 @@ var moveFilters = {
 // Awaken the engine
 botEngine.postMessage('uci'); 
 
+// OPTIMIZATION: Increase Hash (Memory) and Threads to speed up high-depth calculations
+// Hash 64: Gives the engine 64MB of memory to store positions (prevents re-calculating)
+// Threads 2: Uses 2 CPU cores instead of 1 (if supported by browser/device)
+botEngine.postMessage('setoption name Hash value 64');
+botEngine.postMessage('setoption name Threads value 2');
+
 // Set up responses from the engine
 botEngine.onmessage = function(event) {
-    var line = event.data;
+    let line = event.data;
 
     /*
     // == Evaluation bar ===========
@@ -148,12 +153,12 @@ botEngine.onmessage = function(event) {
         3.  Update the evaluation bar and evaluation score history
     */
     if (line.startsWith('info') && line.includes('score')) {
-        var score = 0;
+        let score = 0;
 
         // Depth tracker (only update evaluation score on final iteration)
-        var currentDepth = 0;
+        let currentDepth = 0;
         if (line.includes('depth')) {
-            var depthString = line.split('depth')[1];
+            let depthString = line.split('depth')[1];
             currentDepth = parseInt(depthString.split(' ')[0]);
         }
 
@@ -161,9 +166,9 @@ botEngine.onmessage = function(event) {
         if (line.includes('mate')) {
             // Raw line example: info depth 10 seldepth 15 score mate 3 nodes 45000 nps 120000
             // Focus mate score (example output = ['3', 'nodes', ... ] )
-            var mateString = line.split('mate ')[1];
+            let mateString = line.split('mate ')[1];
             // Isolate mate score (example output = '3')
-            var mateIn = parseInt(mateString.split(' ')[0]);
+            let mateIn = parseInt(mateString.split(' ')[0]);
 
             // Encode mate as large centipawn value. Closer mates have higher values
             if (mateIn > 0) {
@@ -175,7 +180,7 @@ botEngine.onmessage = function(event) {
 
         // 1-B: Centipawn score
         else if (line.includes('cp')) {
-            var centipawnString = line.split('score cp ')[1];
+            let centipawnString = line.split('score cp ')[1];
             score = parseInt(centipawnString.split(' ')[0])
         }
 
@@ -202,17 +207,17 @@ botEngine.onmessage = function(event) {
         updateEvalBar(currentEval);
 
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
-        var bestMove = event.data.split(' ')[1];
+        let bestMove = event.data.split(' ')[1];
 
         // Convert the bestmove into a format the chess.js library understands
         // 1st index is starting point, 2nd index is "ending" point (0,2 means 0-1). 
-        var source = bestMove.substring(0, 2);
-        var target = bestMove.substring(2, 4);
+        let source = bestMove.substring(0, 2);
+        let target = bestMove.substring(2, 4);
         // 4th index is blank unless there is a promotion (ex: 'e7e8q' means pawn promotes to queen)
-        var promotion = bestMove.substring(4, 5);
+        let promotion = bestMove.substring(4, 5);
 
         // To store the move for execution after it's been determined (best or weakened)
-        var engineMove = null;
+        let engineMove = null;
 
         /* 
         == Move weakener ==
@@ -223,12 +228,12 @@ botEngine.onmessage = function(event) {
             // X% chance of selecting a random move instead of the best move
             if (Math.random() < randomizationFactor) {
                 // Retrieve all possible moves and select one at random
-                var legalMoves = game.moves({ verbose: true });
+                let legalMoves = game.moves({ verbose: true });
 
                  // Loop until a LEGAL move has been randomly selected
                 while (engineMove === null && legalMoves.length > 0) {
-                    var randomIndex = Math.floor(Math.random() * legalMoves.length);
-                    var randomMove = legalMoves[randomIndex];
+                    let randomIndex = Math.floor(Math.random() * legalMoves.length);
+                    let randomMove = legalMoves[randomIndex];
 
                     // Attempt to make the move 
                     engineMove = game.move({
@@ -298,25 +303,27 @@ function makeEngineMove() {
 // =============================
 
 // Set up an engine specifically for generating hints (same process as bot engine)
-var hintEngine = new Worker('js/stockfish.js');
-var hintDifficulty = 20;
-var hintSearchDepth = 10;
+const hintEngine = new Worker('js/stockfish.js');
+const hintDifficulty = 20;
+const hintSearchDepth = 10;
 hintEngine.postMessage('uci'); 
+hintEngine.postMessage('setoption name Hash value 32');
+hintEngine.postMessage('setoption name Threads value 2');
 hintEngine.postMessage('setoption name Skill Level value ' + hintDifficulty); 
 
 // Set up responses from the engine
 hintEngine.onmessage = function(event) {
-    var line = event.data;
+    let line = event.data;
 
     // == Capture the score ==
     if (line.startsWith('info') && line.includes('score')) {
-        var score = 0;
+        let score = 0;
 
         // Mate score
         if (line.includes('mate')) {
             // Engine produces mate in format 'score mate 5' (engine winning), 'score mate -3' (engine losing)
-            var mateString = line.split('mate ')[1];
-            var mateIn = parseInt(mateString.split(' ')[0]);
+            let mateString = line.split('mate ')[1];
+            let mateIn = parseInt(mateString.split(' ')[0]);
 
             // Convert mate to a large centipawn value for consistency
             if (mateIn > 0) {
@@ -327,7 +334,7 @@ hintEngine.onmessage = function(event) {
 
         // Centipawn score
         } else if (line.includes('cp')) {
-            var centipawnString = line.split('score cp ')[1];
+            let centipawnString = line.split('score cp ')[1];
             score = parseInt(centipawnString.split(' ')[0]);
         }
 
@@ -339,7 +346,7 @@ hintEngine.onmessage = function(event) {
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
-        var bestMoveMessage = event.data.split(' ')[1];
+        let bestMoveMessage = event.data.split(' ')[1];
 
         // Handle game over (no best move) 
         if (bestMoveMessage === '(none)') {
@@ -348,24 +355,25 @@ hintEngine.onmessage = function(event) {
                 analysisIndex++;
                 triggerMoveAnalysis();
             }
+            return;
         }
 
         // Convert the bestmove into a format the chess.js library understands
         // 1st index is starting point, 2nd index is "ending" point (0,2 means 0-1). 
-        var source = bestMoveMessage.substring(0, 2);
-        var target = bestMoveMessage.substring(2, 4);
+        let source = bestMoveMessage.substring(0, 2);
+        let target = bestMoveMessage.substring(2, 4);
 
         // A: Reviewing game
         if (reviewingGame) {
             // == Evaluation score == 
             // Store the best move into the history array
-            var bestMoveObject = { from: source, to: target };
+            let bestMoveObject = { from: source, to: target };
             hintHistory[analysisIndex] = bestMoveObject;
 
             // Get the best move's evaluation score
-            var bestEvalWhitePerspective = tempBestEval;
-            var currentFen = fenHistory[analysisIndex];
-            var turnColor = currentFen.split(' ')[1];
+            let bestEvalWhitePerspective = tempBestEval;
+            let currentFen = fenHistory[analysisIndex];
+            let turnColor = currentFen.split(' ')[1];
             if (turnColor === 'b') bestEvalWhitePerspective = -tempBestEval;
 
             /*
@@ -381,20 +389,20 @@ hintEngine.onmessage = function(event) {
             // Re-evaluate the PREVIOUS move
             if (analysisIndex > 0) {
                 // Get the move played
-                var history = game.history({ verbose: true });
-                var prevMoveIndex = analysisIndex - 1;
-                var movePlayed = history[prevMoveIndex];
+                let history = game.history({ verbose: true });
+                let prevMoveIndex = analysisIndex - 1;
+                let movePlayed = history[prevMoveIndex];
 
                 // Get evaluations
-                var prevEval = evalHistory[prevMoveIndex];
-                var currEval = evalHistory[analysisIndex];
+                let prevEval = evalHistory[prevMoveIndex];
+                let currEval = evalHistory[analysisIndex];
 
                 // Get the previous best move
-                var prevBestMove = hintHistory[prevMoveIndex];
+                let prevBestMove = hintHistory[prevMoveIndex];
 
                 // Convert evaluation score to Win Percentage
-                var bestWinChance = calculateEvaluation(prevEval);
-                var playedWinChance = calculateEvaluation(currEval);
+                let bestWinChance = calculateEvaluation(prevEval);
+                let playedWinChance = calculateEvaluation(currEval);
 
                 // Adjust perspective for black (if 75% for white, then 25% for black)
                 if (movePlayed.color === 'b') {
@@ -404,7 +412,7 @@ hintEngine.onmessage = function(event) {
 
                 // Calculate the accuracy of winning chance captured relative to the best move
                 // (E.g. best move = 50% win chance, played move = 40% win chance -> 100 - (50 - 40) = 90% accuracy)
-                var accuracy = 100 - (bestWinChance - playedWinChance);
+                let accuracy = 100 - (bestWinChance - playedWinChance);
                 // The engine can sometimes rate moves above best move
                 if (accuracy > 100) accuracy = 100;
 
@@ -413,20 +421,20 @@ hintEngine.onmessage = function(event) {
 
                 // == Move quality judgement dot ==
                 // Determine the move quality judgement
-                var judgement = determineMoveJudgement(movePlayed, prevBestMove, prevEval, currEval, movePlayed.color);
+                let judgement = determineMoveJudgement(movePlayed, prevBestMove, prevEval, currEval, movePlayed.color);
 
                 // Increment the respective judgement count
-                var type = judgement.text
+                let type = judgement.text
                 if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
 
                 // Store the judgement for later use in filtering (HTML data-index is 1-based)
                 moveJudgements.push({ index: analysisIndex + 1, type: type });
 
                 // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
-                var dotClass = judgement.class.replace('judgement', 'dot');
+                let dotClass = judgement.class.replace('judgement', 'dot');
 
                 // Apply the judgement dot 
-                var $moveSpan = $('.move-link[data-index="' + analysisIndex + '"]');
+                let $moveSpan = $('.move-link[data-index="' + analysisIndex + '"]');
                 $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
             }
 
@@ -454,10 +462,10 @@ hintEngine.onmessage = function(event) {
 
             // == Update the status bar with the best move notation ==
             // Obtain all possible moves
-            var moves = game.moves({ verbose: true });
+            let moves = game.moves({ verbose: true });
 
             // Search through the  moves and find the one that matches the best move provided by the engine
-            var matchedMove = moves.find(function(move) {
+            let matchedMove = moves.find(function(move) {
 
                 // A match must have the same source and target squares
                 if (move.from !== source) return false;
@@ -545,7 +553,7 @@ function onDrop (source, target) {
     }
 
     // Check if the move is legal 
-    var move = game.move({
+    let move = game.move({
       from: source,
       to: target,
       // Queen promotion as default
@@ -583,7 +591,7 @@ function onDrop (source, target) {
 
 // Highlight the square of the piece that the player has clicked
 function highlightSquare(square) {
-    var $square = $('#myBoard .square-' + square);
+    let $square = $('#myBoard .square-' + square);
     $square.addClass('highlight-source');
 }
 
@@ -591,13 +599,13 @@ function highlightSquare(square) {
 function highlightMoves(square) {
     if (highlightsEnabled) {
         // Get legal moves for the piece
-        var moves = game.moves({
+        let moves = game.moves({
             square: square,
             verbose: true
         });
 
         // Highlight every legal square
-        for (var i = 0; i < moves.length; i++) {
+        for (let i = 0; i < moves.length; i++) {
             $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
         }
     }
@@ -612,7 +620,7 @@ function removeCurrentMoveHighlights() {
     if (game.in_check() === false) removeInCheckHighlights();
 
     // Status bar text
-    var currentText = $('#status').text();
+    let currentText = $('#status').text();
     if (currentText.startsWith("Best move:")) updateStatus();
 }
 
@@ -630,12 +638,12 @@ function updateHistoryHighlights() {
     }
 
     // Retrieve the full move history (verbose allows for to/from details)
-    var history = game.history({verbose: true});
+    let history = game.history({verbose: true});
 
     // Highlight the last move's details
-    var moveIndex = viewingIndex - 1
+    let moveIndex = viewingIndex - 1
     if (history[moveIndex]) {
-        var move = history[moveIndex];
+        let move = history[moveIndex];
         highlightLastMove(move.from, move.to);
     }
 }
@@ -680,7 +688,7 @@ function handleSquareClickInteractions(square) {
     // Scenario 1 - player clicked a square to select a piece
     // Current selection is null - no piece previously selected
     if (selectedSquare === null) {
-        var piece = game.get(square);
+        let piece = game.get(square);
         
         // Must be a piece, and must be the players color
         if (!piece || piece.color !== game.turn()) {
@@ -706,7 +714,7 @@ function handleSquareClickInteractions(square) {
     }
 
     // 2B. New piece of the same color selected - change selection
-    var piece = game.get(square);
+    let piece = game.get(square);
     // If(piece) returns true if selection is not null - piece.color crashes on null
     if (piece && piece.color === game.turn()) {
         selectedSquare = square;
@@ -717,7 +725,7 @@ function handleSquareClickInteractions(square) {
     }
 
     // 2C. Attempt to move the selected piece to the target square
-    var move = game.move({
+    let move = game.move({
         from: selectedSquare,
         to: square,
         promotion: 'q'
@@ -744,7 +752,7 @@ function handleSquareClickInteractions(square) {
 // Perform an action based on the type of square clicked
 function onSquareClick(event) {
     // 'this' is the specific .square-55d63 element that was clicked
-    var square = $(this).attr('data-square');
+    let square = $(this).attr('data-square');
     handleSquareClickInteractions(square);
 }
 // Bind the square click function to board clicks 
@@ -753,12 +761,12 @@ $('#myBoard').on('click', '.square-55d63', onSquareClick);
 // Wiggle animation on piece hover/drop
 function wiggleAnimation(target, delay) {
     // If no delay explicitly provided, wait 50ms for the board to finish snapping/redrawing
-    var waitTime = delay || 50;
+    let waitTime = delay || 50;
 
     window.setTimeout(function() {
         // Find the square and piece image
-        var $targetSquare = $('#myBoard .square-' + target);
-        var $targetImage = $targetSquare.find('img');
+        let $targetSquare = $('#myBoard .square-' + target);
+        let $targetImage = $targetSquare.find('img');
 
         // Ensure the element exists (has loaded)
         if ($targetImage.length > 0) {
@@ -776,7 +784,7 @@ function wiggleAnimation(target, delay) {
 // Play a sound when hovering over a piece of the players color
 function playHoverSound() {
     // Retrieve the piece data
-    var piece = $(this).attr('data-piece');
+    let piece = $(this).attr('data-piece');
     
     // Play the audio if the piece belongs to the player
     if (piece.charAt(0) === playerColor.charAt(0)) {
@@ -798,7 +806,7 @@ function toggleGameControls(gameInProgress) {
     document.getElementById('catNext').disabled = gameInProgress;
     document.getElementById('eloSlider').disabled = gameInProgress;
     // Color radio buttons
-    var colorRadios = document.querySelectorAll('input[name="color"]');
+    let colorRadios = document.querySelectorAll('input[name="color"]');
     colorRadios.forEach(function(radio) {
         radio.disabled = gameInProgress;
     });
@@ -827,8 +835,8 @@ function updateStatus() {
     }
 
     // Initialize variables for active game
-    var status = '';
-    var moveColor = 'White';
+    let status = '';
+    let moveColor = 'White';
 
     // Determine whose turn it is
     if (game.turn() === 'b') {
@@ -897,22 +905,23 @@ function onSnapEnd () {
 // Update the move history display with every move  
 function updateMoveHistory() {
     // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
-    var history = game.history();
+    let history = game.history();
     
     // Create an HTML body for storing move history
-    var html = '';
+    let html = '';
 
     // Iterate through moves in pairs (1. white, 2. black)
-    for (var i = 0; i < history.length; i += 2) {
-        var moveNumber = (i / 2) + 1;
+    for (let i = 0; i < history.length; i += 2) {
+        let moveNumber = (i / 2) + 1;
 
         // White move is the first in the pair
-        var whiteIndex = i + 1;
-        var whiteMove = '<span class="move-link" data-index="' + whiteIndex + '">' + history[i] + '</span>';
+        let whiteIndex = i + 1;
+        let whiteMove = '<span class="move-link" data-index="' + whiteIndex + '">' + history[i] + '</span>';
 
         // Black move is the second in the pair
+        var blackMove;
         if (history[i + 1]) {
-            var blackIndex = i + 2;
+            let blackIndex = i + 2;
             blackMove = '<span class="move-link" data-index="' + blackIndex + '">' + history[i + 1] + '</span>';
         // Handle pending black move
         } else {
@@ -927,11 +936,11 @@ function updateMoveHistory() {
     }
 
     // Update the HTML element with the generated table data
-    var moveHistoryBodyElement = document.getElementById('moveHistoryBody');
+    let moveHistoryBodyElement = document.getElementById('moveHistoryBody');
     moveHistoryBodyElement.innerHTML = html;
     
     // Auto-scroll the move history to the latest move
-    var pgnElement = document.getElementById('pgn');
+    let pgnElement = document.getElementById('pgn');
     pgnElement.scrollTop = pgnElement.scrollHeight;
 }
 
@@ -947,16 +956,17 @@ function fenSnapshot() {
 // Highlight the King when in check
 function highlightKingCheck(color) {
     // Establish the target piece (wK or bK)
-    var kingColor = color || game.turn();
-    var kingNotation = kingColor + 'K';
+    let kingColor = color || game.turn();
+    let kingNotation = kingColor + 'K';
+    let kingSquare = null;
 
     // Get the board state
-    var boardSquares = board.position();
+    let boardSquares = board.position();
 
     // Locate the target piece
-    for (var square in boardSquares) {
+    for (let square in boardSquares) {
         if (boardSquares[square] === kingNotation) {
-            var kingSquare = square;
+            kingSquare = square;
             // King located - stop searching
             break;
         }
@@ -984,13 +994,13 @@ function analyzeGame() {
 function triggerMoveAnalysis() {
     // == Loading bar ==
     // Track percentage of completion
-    var moveCount = game.history().length;
+    let moveCount = game.history().length;
     if (moveCount > 0) {
-        var completionPercentage = Math.round((analysisIndex / moveCount) * 100);
+        let completionPercentage = Math.round((analysisIndex / moveCount) * 100);
 
         // Update the visual bar
-        var percentageText = document.getElementById('analysisPercent');
-        var percentageFill = document.getElementById('analysisProgressBar');
+        let percentageText = document.getElementById('analysisPercent');
+        let percentageFill = document.getElementById('analysisProgressBar');
         percentageText.innerText = completionPercentage;
         percentageFill.style.width = completionPercentage + '%';
     }
@@ -998,13 +1008,13 @@ function triggerMoveAnalysis() {
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
     if (analysisIndex > game.history().length) {
-        var totalAccuracy = 0;
-        var myMoveCount = 0;
+        let totalAccuracy = 0;
+        let myMoveCount = 0;
 
         // Count only the player's moves for accuracy
-        for (var i = 0; i < accuracyList.length; i++) {
-            var isWhiteMove = (i % 2 === 0);
-            var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+        for (let i = 0; i < accuracyList.length; i++) {
+            let isWhiteMove = (i % 2 === 0);
+            let isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
             if (isPlayerMove) {
                 totalAccuracy += accuracyList[i];
                 myMoveCount++;
@@ -1012,7 +1022,7 @@ function triggerMoveAnalysis() {
         }
 
         // Calculate average accuracy
-        var averageAccuracy = 0;
+        let averageAccuracy = 0;
         if (myMoveCount > 0) {
             averageAccuracy = Math.round(totalAccuracy / myMoveCount);
         }
@@ -1021,7 +1031,7 @@ function triggerMoveAnalysis() {
         document.getElementById('analysisLoader').style.display = 'none';
         document.getElementById('analysisResult').style.display = 'flex';
         renderAnalysisSummary();
-        var accuracyText = document.getElementById('accuracyText');
+        let accuracyText = document.getElementById('accuracyText');
         accuracyText.innerHTML = '<span class="analysis-footer">Average accuracy: ' + averageAccuracy + '%</span>';
 
         // End the loading sound
@@ -1032,7 +1042,7 @@ function triggerMoveAnalysis() {
     }
 
     // Retrieve the board state for the targeted turn
-    var fen = fenHistory[analysisIndex];
+    let fen = fenHistory[analysisIndex];
 
     // Obtain the best move for the targeted turn
     hintEngine.postMessage('position fen ' + fen);
@@ -1041,16 +1051,16 @@ function triggerMoveAnalysis() {
 
 // Rander the clickable badges for the analysis summary
 function renderAnalysisSummary() {
-    var html = '';
+    let html = '';
 
     // Iterate through each move judgement type
-    for (var type in analysisCounts) {
-        var count = analysisCounts[type];
-        var isEnabled = moveFilters[type];
-        var disabledClass = isEnabled ? '' : 'filter-disabled';
+    for (let type in analysisCounts) {
+        let count = analysisCounts[type];
+        let isEnabled = moveFilters[type];
+        let disabledClass = isEnabled ? '' : 'filter-disabled';
 
         // Construct the class for the badge (styling)
-        var badgeClass = 'judgement-label summary-badge judgement-' + type + ' ' + disabledClass;
+        let badgeClass = 'judgement-label summary-badge judgement-' + type + ' ' + disabledClass;
 
         // Generate the badge HTML
         html += '<span class="' + badgeClass + '" ' +
@@ -1082,13 +1092,13 @@ function applyMoveVisibility() {
     // Iterate through each move judgement - structure is { index: number, type: string }
     moveJudgements.forEach(function(judgement) {
         // Determine whose move it is (judgement list indexing is 1-based)
-        var isWhiteMove = (judgement.index % 2 !== 0);
-        var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+        let isWhiteMove = (judgement.index % 2 !== 0);
+        let isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
 
         // Only filter the player's moves
         if (isPlayerMove) {
             // Locate the move within the table, based on the judgement list index (matches data-index)
-            var $moveElement = $('.move-link[data-index="' + judgement.index + '"]');
+            let $moveElement = $('.move-link[data-index="' + judgement.index + '"]');
             // Check if the move type is enabled in the filters
             if (moveFilters[judgement.type]) {
                 $moveElement.removeClass('move-dimmed');
@@ -1101,7 +1111,7 @@ function applyMoveVisibility() {
 
 // ==========  Board setup  ==========
 // Create configurations for the chessboard before it is created
-var config = {
+const config = {
     draggable: true,
     position: 'start',
     onDragStart: onDragStart,
@@ -1110,7 +1120,7 @@ var config = {
 };
 
 // Initialize the chessboard (div with id 'myBoard') 
-var board = Chessboard('myBoard', config);
+const board = Chessboard('myBoard', config);
 
  // Update the board status on game start
 updateStatus();
@@ -1120,17 +1130,17 @@ updateStatus();
 // =============================
 
 // ==========  Difficulty selection  ==========
-var catPrevious = document.getElementById('catPrevious');
-var categoryDisplay = document.getElementById('categoryDisplay');
-var catNext = document.getElementById('catNext');
-var eloSlider = document.getElementById('eloSlider');
-var eloDisplay = document.getElementById('eloDisplay');
+const catPrevious = document.getElementById('catPrevious');
+const categoryDisplay = document.getElementById('categoryDisplay');
+const catNext = document.getElementById('catNext');
+const eloSlider = document.getElementById('eloSlider');
+const eloDisplay = document.getElementById('eloDisplay');
 
 // == Helper methods ==
 // Update the difficulty category
 function updateDifficultyCategory() {
     // Get the current category
-    var category = difficultyCategories[currentCategoryIndex];
+    let category = difficultyCategories[currentCategoryIndex];
 
     // Update the category text display
     categoryDisplay.innerText = category.name;
@@ -1166,15 +1176,12 @@ function updateEloValue(eloValue) {
 // Update the engine profile settings based on the current Elo value
 function updateEngineSettings(elo) {
     // Select the bot profile that matches the current Elo
-    var profile = botProfiles[elo];
+    let profile = botProfiles[elo];
 
     // Set the skill level, search depth, and randomization factor
     botEngine.postMessage("setoption name Skill Level value " + profile.skill);
     botSearchDepth = profile.depth;
     randomizationFactor = profile.random;
-
-    // Debugging output
-    console.log('Bot Profile Set: Elo ' + elo + ' | Skill Level ' + profile.skill + ' | Search Depth ' + profile.depth + ' | Randomization Factor ' + profile.random);
 }
 
 // == Event handlers ==
@@ -1200,7 +1207,7 @@ catNext.addEventListener('click', nextCategory);
 
 // Elo slider change
 function eloSliderChange() {
-    var newElo = parseInt(eloSlider.value);
+    let newElo = parseInt(eloSlider.value);
     updateEloValue(newElo);
     updateEngineSettings(newElo);
     playSound('select');
@@ -1212,7 +1219,7 @@ updateDifficultyCategory();
 updateEngineSettings(currentElo);
 
 // ==========  Color selection  ==========
-var colorRadios = document.querySelectorAll('input[name="color"]');
+const colorRadios = document.querySelectorAll('input[name="color"]');
 colorRadios.forEach(function(radio) {
     radio.addEventListener('change', function() {
         playSound('select');
@@ -1271,7 +1278,7 @@ function startNewGame() {
     board.orientation(playerColor);
 
     // Replace CSS class for interactivity with only the players color pieces
-    var boardElement = document.getElementById('myBoard');
+    let boardElement = document.getElementById('myBoard');
     boardElement.classList.remove('board-white', 'board-black');
     boardElement.classList.add('board-' + playerColor);
 
@@ -1292,17 +1299,17 @@ function startNewGame() {
     }
 }
 // Bind the reset function to the reset button
-var resetButton = document.getElementById('startBtn');
+const resetButton = document.getElementById('startBtn');
 resetButton.addEventListener('click', startNewGame);
 
 // ==========  Game over modal  ==========
 // Modal Elements
-var gameOverModal = document.getElementById("gameOverModal");
-var gameOverModalText = document.getElementById("gameResult");
-var gameOverModalReason = document.getElementById("gameReason");
-var gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
-var rematchBtn = document.getElementById("rematchBtn");
-var gameReviewBtn = document.getElementById("gameReviewBtn");
+const gameOverModal = document.getElementById("gameOverModal");
+const gameOverModalText = document.getElementById("gameResult");
+const gameOverModalReason = document.getElementById("gameReason");
+const gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
+const rematchBtn = document.getElementById("rematchBtn");
+const gameReviewBtn = document.getElementById("gameReviewBtn");
 
 // Show the game over modal with the result and reason 
 function openGameOverModal(result, reason) {
@@ -1361,7 +1368,7 @@ gameOverModalCloseBtn.addEventListener('click', exitToMenu);
 
 // Determine whether the game over modal is open
 function gameOverModalStatus() {
-    var status = false;
+    let status = false;
     if (gameOverModal.style.display === 'flex') {
         status = true;
     }
@@ -1405,11 +1412,11 @@ function reviewGame() {
 
     // == Dim opponent moves ==
     $('.move-link').each(function() {
-        var index = parseInt($(this).attr('data-index'));
+        let index = parseInt($(this).attr('data-index'));
 
         // Determine whose move it is (data-index is 1-based)
-        var isWhiteMove = (index % 2 !== 0);
-        var isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
+        let isWhiteMove = (index % 2 !== 0);
+        let isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
 
         // Dim moves
         if (!isPlayerMove) {
@@ -1425,13 +1432,13 @@ function reviewGame() {
 gameReviewBtn.addEventListener('click', reviewGame);
 
 // ==========  In-game options modal  ==========
-var optionsModal = document.getElementById('optionsModal');
-var optionsModalBtn = document.getElementById('optionsBtn');
-var optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
-var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
-var clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
-var dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
-var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+const optionsModal = document.getElementById('optionsModal');
+const optionsModalBtn = document.getElementById('optionsBtn');
+const optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
+const optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+const clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+const dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+const bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
 
 // Not usable until game start
 optionsModalBtn.disabled = true;
@@ -1467,7 +1474,7 @@ window.addEventListener('click', optionsModuleOutsideClick);
 
 // Determine whether the options modal is open
 function optionsModalStatus() {
-    var status = false;
+    let status = false;
     if (optionsModal.style.display === 'flex') {
         status = true;
     }
@@ -1497,10 +1504,10 @@ dragMovingPreference.addEventListener('change', function() { setMovingPreference
 bothMovingPreference.addEventListener('change', function() { setMovingPreference(true, true); });
 
 // ==========  Confirm choice (yes/no) modal  ==========
-var yesNoModal = document.getElementById('yesNoModal');
-var yesBtn = document.getElementById('yesBtn');
-var noBtn = document.getElementById('noBtn');
-var yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
+const yesNoModal = document.getElementById('yesNoModal');
+const yesBtn = document.getElementById('yesBtn');
+const noBtn = document.getElementById('noBtn');
+const yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
 
 // Open yesNoModal
 function openYesNoModal() {
@@ -1516,7 +1523,7 @@ function closeYesNoModal() {
 
 // Determine whether the YesNo modal is open
 function yesNoModalStatus() {
-    var status = false;
+    let status = false;
     if (yesNoModal.style.display == 'flex') {
         status = true;
     }
@@ -1535,7 +1542,7 @@ function confirmResignation() {
     playSound('end');
 
     // Update the move status and show the game over modal
-    var moveColor = 'White';
+    let moveColor = 'White';
     if (game.turn() === 'b') {
         moveColor = 'Black';
     }
@@ -1554,10 +1561,10 @@ noBtn.addEventListener('click', cancelResignation);
 yesNoCloseBtn.addEventListener('click', cancelResignation);
 
 // ==========  Back / forward navigation  ==========
-var backBtn = document.getElementById('backBtn');
-var forwardBtn = document.getElementById('forwardBtn');
-var firstBtn = document.getElementById('firstBtn');
-var lastBtn = document.getElementById('lastBtn');
+const backBtn = document.getElementById('backBtn');
+const forwardBtn = document.getElementById('forwardBtn');
+const firstBtn = document.getElementById('firstBtn');
+const lastBtn = document.getElementById('lastBtn');
 backBtn.disabled = true;
 forwardBtn.disabled = true;
 firstBtn.disabled = true;
@@ -1649,7 +1656,7 @@ function navigationUpdate() {
         // Highlight "current move" notation
         if (viewingIndex > 0) {
             // Find the specific html element for the current move
-            var $currentmove = $('.move-link[data-index="' + viewingIndex + '"]');
+            let $currentmove = $('.move-link[data-index="' + viewingIndex + '"]');
             if ($currentmove.length > 0) {
                 // Style the element 
                 $currentmove.addClass('current-move');
@@ -1665,12 +1672,12 @@ function navigationUpdate() {
 
     // Update in-check highlights
     removeInCheckHighlights();
-    var move = (viewingIndex !== 0) ? getPreviousMove() : null;
+    let move = (viewingIndex !== 0) ? getPreviousMove() : null;
     if (move !== null) {
         // Check for check (+) or checkmate (#)
         if (move.san.includes('+') || move.san.includes('#')) {
             // The previous move (opposite color) put THIS color in check
-            var colorInCheck = (move.color === 'w') ? 'b' : 'w';
+            let colorInCheck = (move.color === 'w') ? 'b' : 'w';
             highlightKingCheck(colorInCheck);
         }
 
@@ -1707,19 +1714,19 @@ function navigationUpdate() {
         $('#status .judgement-label').remove();
 
         // Get the index of the previous move
-        var moveIndex = viewingIndex - 1;
+        let moveIndex = viewingIndex - 1;
 
         // Display the best move & judgement only if the analysis has finished loading
         if (hintHistory[moveIndex]) {
             // Best move
-            var hint = hintHistory[moveIndex];
+            let hint = hintHistory[moveIndex];
             highlightHint(hint.from, hint.to);
 
             // Judgement
-            var prevEval = evalHistory[moveIndex];
-            var currEval = evalHistory[moveIndex + 1];
-            var previousMove = getPreviousMove();
-            var judgement = determineMoveJudgement(previousMove, hint, prevEval, currEval, previousMove.color);
+            let prevEval = evalHistory[moveIndex];
+            let currEval = evalHistory[moveIndex + 1];
+            let previousMove = getPreviousMove();
+            let judgement = determineMoveJudgement(previousMove, hint, prevEval, currEval, previousMove.color);
             $('#status').append('<span class="judgement-label ' + judgement.class + '">' + judgement.text + '</span>');
         }
     }
@@ -1730,7 +1737,7 @@ function navigationUpdate() {
 }
 
 // ==========  Undo move  ==========
-var undoBtn = document.getElementById('undoBtn');
+let undoBtn = document.getElementById('undoBtn');
 
 // Not usable until game start
 undoBtn.disabled = true;
@@ -1782,7 +1789,7 @@ function undoMove() {
 undoBtn.addEventListener('click', undoMove);
 
 // ==========  Hint (best move)  ==========
-var hintBtn = document.getElementById('hintBtn');
+let hintBtn = document.getElementById('hintBtn');
 hintBtn.disabled = true;
 
 // Highlight the best move when a hint is requested
@@ -1815,7 +1822,7 @@ function getHint() {
 hintBtn.addEventListener('click', getHint);
 
 // ==========  Resign game  ==========
-var resignBtn = document.getElementById('resignBtn');
+let resignBtn = document.getElementById('resignBtn');
 resignBtn.disabled = true;
 
 // Resign the game for a loss
@@ -1829,8 +1836,8 @@ resignBtn.addEventListener('click', resignGame);
 // =============================
 // ==  Evaluation bar  =========
 // =============================
-evalContainer = document.getElementById('evalContainer');
-optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+const evalContainer = document.getElementById('evalContainer');
+const optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
 
 // Show/hide the evaluation bar 
 function toggleEvalBar() {
@@ -1847,10 +1854,10 @@ optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
 
 // Update evaluation bar
 function updateEvalBar(centipawns) {
-    var evalBar = document.getElementById('evalBar');
-    var evalScore = document.getElementById('evalScore');
-    var mateIncoming = Math.abs(centipawns) > 15000
-    var barHeight = calculateEvaluation(centipawns);
+    let evalBar = document.getElementById('evalBar');
+    let evalScore = document.getElementById('evalScore');
+    let mateIncoming = Math.abs(centipawns) > 15000
+    let barHeight = calculateEvaluation(centipawns);
 
     // Keep the bar within a fixed range for visual clarity
     if (barHeight > 95) {
@@ -1877,14 +1884,14 @@ function updateEvalBar(centipawns) {
     // Give meaning to the centipawn advantage
     evalScoreText = '';
     if (mateIncoming) {
-        var movesToMate = 20000 - Math.abs(centipawns);
+        let movesToMate = 20000 - Math.abs(centipawns);
         if (movesToMate === 0) {
             evalScoreText = 'M';
         } else {
             evalScoreText = 'M' + movesToMate;
         }
     } else {
-        var pawnAdvantage = Math.abs(centipawns) / 100;
+        let pawnAdvantage = Math.abs(centipawns) / 100;
         // Formatted to one decimal place
         evalScoreText = pawnAdvantage.toFixed(1);
     }
@@ -1918,7 +1925,6 @@ function updateEvalBar(centipawns) {
             evalScore.style.top = '5px';
             evalScore.style.bottom = 'auto';
         }
-
     }
 }
 
@@ -1930,9 +1936,9 @@ Calculate the game evaluation (who is winning)
 */
 function calculateEvaluation(centipawnAdvantage) {
     // 0.004 is the commonly used sensitivity factor for game evaluation in chess programs
-    var sensitivityFactor = 0.004;
+    let sensitivityFactor = 0.004;
     // Calculate the chance of winning based on the centipawn advantage
-    var winChance = 1 / (1 + Math.pow(10, -sensitivityFactor * centipawnAdvantage))
+    let winChance = 1 / (1 + Math.pow(10, -sensitivityFactor * centipawnAdvantage))
     // Return the chance of White winning as a percentage
     return winChance * 100;
 }   
@@ -1943,14 +1949,14 @@ function calculateEvaluation(centipawnAdvantage) {
 
 // Helper to play sounds safely
 function playSound(name) {
-    var sound = sounds[name];
+    let sound = sounds[name];
 
     if (sound !== null) {
         // Reset the sound to the beginning
         sound.currentTime = 0;
 
         // Play the sound
-        var soundSample = sound.play();
+        let soundSample = sound.play();
 
         // Handle browser interupptions
         if (soundSample !== undefined) {
@@ -1987,9 +1993,9 @@ function playMoveSound(moveResult) {
 
 // Retrieve the details of the previously played move
 function getPreviousMove() {
-    var history = game.history({verbose: true});
-    var moveIndex = viewingIndex - 1;
-    var move = history[moveIndex];
+    let history = game.history({verbose: true});
+    let moveIndex = viewingIndex - 1;
+    let move = history[moveIndex];
     return move;
 }
 
@@ -2001,7 +2007,7 @@ function playHistoricalMoveSound() {
     }
 
     // Determine the kind of move played
-    var move = getPreviousMove();
+    let move = getPreviousMove();
 
     // Checkmate delivered
     if (move.san.includes('#')) {
@@ -2032,7 +2038,7 @@ function playHistoricalMoveSound() {
 // Navigate to a move by move-history click
 function moveHistoryNavigation() {
     // Get the index of the clicked move
-    var index = $(this).attr('data-index');
+    let index = $(this).attr('data-index');
 
     // Navigate to the viewing index of the move
     viewingIndex = parseInt(index);
@@ -2043,7 +2049,7 @@ $('#moveHistoryBody').on('click', '.move-link', moveHistoryNavigation);
 
 // Determine the quality of the move played based on evaluation score
 function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
-    var judgement = {};
+    let judgement = {};
 
     // == The best move was played ==
     if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
@@ -2053,21 +2059,21 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 
     // == Blunder check == 
     // Define thresholds for Mate and "lost" position (7.5 pawns)
-    var mateThreshold = 5000;
-    var lostThreshold = 750;
+    let mateThreshold = 5000;
+    let lostThreshold = 750;
 
     // Check for current and previous mate
-    var isMateAgainstWhite = (currentEvaluation <= -mateThreshold);
-    var isMateAgainstBlack = (currentEvaluation >= mateThreshold);
-    var wasMateAgainstWhite = (previousEvaluation <= -mateThreshold);
-    var wasMateAgainstBlack = (previousEvaluation >= mateThreshold);
+    let isMateAgainstWhite = (currentEvaluation <= -mateThreshold);
+    let isMateAgainstBlack = (currentEvaluation >= mateThreshold);
+    let wasMateAgainstWhite = (previousEvaluation <= -mateThreshold);
+    let wasMateAgainstBlack = (previousEvaluation >= mateThreshold);
 
     // Check if previously in lost position
-    var whiteWasLost = (previousEvaluation < -lostThreshold);
-    var blackWasLost = (previousEvaluation > lostThreshold);
+    let whiteWasLost = (previousEvaluation < -lostThreshold);
+    let blackWasLost = (previousEvaluation > lostThreshold);
 
     // Determine whether the position was blundered
-    var positionBlundered = false;
+    let positionBlundered = false;
     if (turnColor === 'w') {
         // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
         if (isMateAgainstWhite && !wasMateAgainstWhite && !whiteWasLost) {
@@ -2088,8 +2094,8 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 
     // == Standard move judgement ==
     // Compare winning chance before and after the move (min 0, max 100)
-    var previousWinningChance = calculateEvaluation(previousEvaluation);
-    var currentWinningChance = calculateEvaluation(currentEvaluation);
+    let previousWinningChance = calculateEvaluation(previousEvaluation);
+    let currentWinningChance = calculateEvaluation(currentEvaluation);
 
     /*
     Calculate the loss of advantage as the difference between evaluation score
@@ -2097,7 +2103,7 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
         Increase of score - favorable for White
         Decrease of score - favorable for Black
     */
-    var lostAdvantage = 0;
+    let lostAdvantage = 0;
     if (turnColor === 'w') {
         // White loses chances if the score gets smaller
         lostAdvantage = previousWinningChance - currentWinningChance;
@@ -2127,10 +2133,6 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 // =============================
 
 document.addEventListener('keydown', function(event) {
-
-    // Debugging
-    console.log(event.key);
-
     switch (event.key) {
         // Navigate back
         case 'ArrowLeft':
@@ -2138,8 +2140,8 @@ document.addEventListener('keydown', function(event) {
             if (gameActive || reviewingGame) {
                 navigateBack();
             } else {
-                var catPrevious = document.getElementById('catPrevious');
-                var catNext = document.getElementById('catNext');
+                const catPrevious = document.getElementById('catPrevious');
+                const catNext = document.getElementById('catNext');
                 if (catPrevious === document.activeElement || catNext === document.activeElement) {
                     previousCategory();
                     if (currentCategoryIndex === 0) {
@@ -2155,8 +2157,8 @@ document.addEventListener('keydown', function(event) {
             if (gameActive || reviewingGame) {
                 navigateForward();
             } else {
-                var catPrevious = document.getElementById('catPrevious');
-                var catNext = document.getElementById('catNext');
+                const catPrevious = document.getElementById('catPrevious');
+                const catNext = document.getElementById('catNext');
                 if (catPrevious === document.activeElement || catNext === document.activeElement) {
                     nextCategory();
                     if (currentCategoryIndex === difficultyCategories.length - 1) {
@@ -2165,19 +2167,32 @@ document.addEventListener('keydown', function(event) {
                 }
             }
             break;
-   
+
+        // Close all modals
+        case 'Escape':
+            if (gameOverModalStatus()) {
+                exitToMenu();
+            } else if (optionsModalStatus()) {
+                closeOptionsModal();
+            } else if (yesNoModalStatus()) {
+                cancelResignation();
+            }
+            break;
+
+        // == Letter Keys (Alphabetical) ==
+
+        // Play as Black
         case 'b':
         case 'B':
-            // Play as Black
             if (!optionsModalStatus()) {
-                blackBtn = document.querySelector('input[name="color"][value="black"]'); 
+                const blackBtn = document.querySelector('input[name="color"][value="black"]'); 
                 blackBtn.checked = true;
                 blackBtn.focus();
                 playSound('select');
 
-            // Moving preference - click
+            // Moving preference - click (Context: Options Modal)
             } else {
-                var bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+                const bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
                 if (optionsModalStatus()) {
                     setMovingPreference(true, true);
                     bothMovingPreference.checked = true;
@@ -2186,19 +2201,91 @@ document.addEventListener('keydown', function(event) {
             }
             break;
 
-        // Play as White
-        case 'w':
-        case 'W':
-            whiteBtn = document.querySelector('input[name="color"][value="white"]');
-            whiteBtn.checked = true;
-            whiteBtn.focus();
-            playSound('select');
+        // Moving preference - click
+        case 'c':
+        case 'C':
+            const clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+            if (optionsModalStatus()) {
+                setMovingPreference(true, false);
+                clickMovingPreference.checked = true;
+                clickMovingPreference.focus();
+            }
             break;
-        
-        // Start new game
-        case 's':
-        case 'S':
-            startNewGame();
+
+        // Difficulty selection
+        case 'd':
+        case 'D':
+            if (!optionsModalStatus()) {
+                document.getElementById('catNext').focus();
+
+            // Moving preference - drag (Context: Options Modal)
+            } else {
+                const dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+                if (optionsModalStatus()) {
+                    setMovingPreference(false, true);
+                    dragMovingPreference.checked = true;
+                    dragMovingPreference.focus();
+                }
+            }
+            break;
+
+        // Toggle on/off evaluation score bar
+        case 'e':
+        case 'E':
+            const optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+            if (optionsModalStatus()) {
+                toggleEvalBar();
+                optionsModalEvalBarCheckbox.checked = evalBarEnabled;
+            }
+            break;
+
+        // Navigate to the first move 
+        case 'f':
+        case 'F':
+            navigateFirst();
+            break;
+
+        // Review the previous game
+        case 'g':
+        case 'G':
+            if (gameOverModalStatus()) {
+                reviewGame();
+            }
+            break;
+
+        // Highlights / Hint
+        case 'h':
+        case 'H':
+            // Toggle highlighting
+            const optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+            if (optionsModalStatus()) {
+                toggleHighlights();
+                optionsModalHighlightsCheckbox.checked = highlightsEnabled;
+            }
+            // Request a hint
+            else {
+                getHint();
+            }
+            break;
+
+        // Navigate to the last move
+        case 'l':
+        case 'L':
+            navigateLast();
+            break;
+
+        // Cancel resignation (No)
+        case 'n':
+        case 'N':
+            if (yesNoModalStatus()) {
+                cancelResignation();
+            }
+            break;
+
+        // Open options modal
+        case 'p':
+        case 'P':
+            openOptionsModal();
             break;
 
         // Resign or rematch
@@ -2215,81 +2302,10 @@ document.addEventListener('keydown', function(event) {
             }
             break;
 
-        // Close all modals
-        case 'Escape':
-            if (gameOverModalStatus()) {
-                exitToMenu();
-            } else if (optionsModalStatus()) {
-                closeOptionsModal();
-            } else if (yesNoModalStatus()) {
-                cancelResignation();
-            }
-            break;
-
-        // Open options modal
-        case 'p':
-        case 'p':
-            openOptionsModal();
-            break;
-
-        case 'd':
-        case 'D':
-            // Difficulty
-            if (!optionsModalStatus()) {
-                document.getElementById('catNext').focus();
-
-            // Moving preference - click
-            } else {
-                var dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
-                if (optionsModalStatus()) {
-                    setMovingPreference(false, true);
-                    dragMovingPreference.checked = true;
-                    dragMovingPreference.focus();
-                }
-            }
-            break;
-
-        // Confirm resignation
-        case 'y':
-        case 'Y':
-            if (yesNoModalStatus()) {
-                confirmResignation();
-            }
-            break;
-
-        // Cancel resignation
-        case 'n':
-        case 'N':
-            if (yesNoModalStatus()) {
-                cancelResignation();
-            }
-            break;
-
-        
-        case 'h':
-        case 'H':
-            // Toggle highlighting
-            var optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
-            if (optionsModalStatus()) {
-                toggleHighlights();
-                optionsModalHighlightsCheckbox.checked = highlightsEnabled;
-            }
-
-            // Request a hint
-            else {
-                getHint();
-            }
-            break;
-
-        // Moving preference - click
-        case 'c':
-        case 'C':
-            var clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
-            if (optionsModalStatus()) {
-                setMovingPreference(true, false);
-                clickMovingPreference.checked = true;
-                clickMovingPreference.focus();
-            }
+        // Start new game
+        case 's':
+        case 'S':
+            startNewGame();
             break;
 
         // Undo previous move
@@ -2298,33 +2314,20 @@ document.addEventListener('keydown', function(event) {
             undoMove();
             break;
 
-        // Toggle on/off evaluation score bar
-        case 'e':
-        case 'E':
-            var optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
-            if (optionsModalStatus()) {
-                toggleEvalBar();
-                optionsModalEvalBarCheckbox.checked = evalBarEnabled;
-            }
+        // Play as White
+        case 'w':
+        case 'W':
+            const whiteBtn = document.querySelector('input[name="color"][value="white"]');
+            whiteBtn.checked = true;
+            whiteBtn.focus();
+            playSound('select');
             break;
 
-        // Navigate to the first move 
-        case 'f':
-        case 'F':
-            navigateFirst();
-            break;
-
-        // Navigate to the last move
-        case 'l':
-        case 'L':
-            navigateLast();
-            break;
-
-        // Review the previous game
-        case 'g':
-        case 'G':
-            if (gameOverModalStatus()) {
-                reviewGame();
+        // Confirm resignation (Yes)
+        case 'y':
+        case 'Y':
+            if (yesNoModalStatus()) {
+                confirmResignation();
             }
             break;
     }

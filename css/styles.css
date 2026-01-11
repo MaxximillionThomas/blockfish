@@ -812,13 +812,6 @@ input:checked + .slider:before {
     vertical-align: middle;
 }
 
-.dot-best { background-color: #26c281; }       /* Bright Green */
-.dot-excellent { background-color: #96c8da; }  /* Light Blue/Cyan (Lichess style) */
-.dot-good { background-color: #95d852; }       /* Light Green */
-.dot-inaccuracy { background-color: #f0c238; } /* Yellow */
-.dot-mistake { background-color: #e6912c; }    /* Orange */
-.dot-blunder { background-color: #b33430; }    /* Red */
-
 /* Labels for judging moves in Game Review mode */
 .judgement-label {
     font-weight: bold;
@@ -834,15 +827,45 @@ input:checked + .slider:before {
     vertical-align: middle;
 }
 
-/* Matches .dot colors */
-.judgement-best { background-color: #26c281; }
-.judgement-excellent { background-color: #96c8da; }
-.judgement-good { background-color: #95d852; }
-.judgement-inaccuracy { background-color: #f0c238; }
-.judgement-mistake { background-color: #e6912c; }
-.judgement-blunder { background-color: #b33430; }
+/* =========================================
+   Move Analysis Dots & Badges
+   ========================================= */
 
+/* 1. Best (!!): Bright Green */
+.dot-best, .judgement-best { 
+    background-color: #26c281; 
+    color: #fff; /* Ensure text is readable on badges */
+}
 
+/* 2. Excellent (!): Light Blue / Cyan */
+.dot-excellent, .judgement-excellent { 
+    background-color: #96c8da; 
+    color: #fff;
+}
+
+/* 3. Good (+): Light Green */
+.dot-good, .judgement-good { 
+    background-color: #95d852; 
+    color: #fff;
+}
+
+/* 4. Inaccuracy (?!): Yellow */
+.dot-inaccuracy, .judgement-inaccuracy { 
+    background-color: #f0c238; 
+    color: #fff;
+}
+
+/* 5. Mistake (?): Orange */
+.dot-mistake, .judgement-mistake { 
+    background-color: #e6912c; 
+    color: #fff;
+}
+
+/* 6. Blunder (??): Red */
+.dot-blunder, .judgement-blunder { 
+    background-color: #b33430; 
+    color: #fff;
+}
 
 /* =============================
 // ==  Animation  =============
