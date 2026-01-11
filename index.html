@@ -77,7 +77,7 @@
             <!-- Turn status & preferences -->
             <div class="header-row">
                 <div id="status" class="status">Turn: Loading...</div>
-                <button id="optionsBtn" class="control-btn" data-tooltip="Manage preferences (P key)">☰</button>
+                <button id="optionsBtn" class="control-btn" data-tooltip="Manage preferences (P key)" aria-label="Manage preferences (P key)">☰</button>
             </div>
 
             <!-- Evaluation bar & chess board   -->
@@ -97,21 +97,21 @@
             <div class="control-row">
 
                 <!-- Undo previous move -->
-                <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)">&#8630;</button>
+                <button id="undoBtn" class="control-btn" data-tooltip="Undo the previous move (U key)" aria-label="Undo the previous move">&#8630;</button>
                 
                 <!-- Navigation controls -->
                 <div class="navigation-controls">
-                    <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)">&laquo;</button>
-                    <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)">&lsaquo;</button>
-                    <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)">&rsaquo;</button>
-                    <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)">&raquo;</button>
+                    <button id="firstBtn" class="control-btn" data-tooltip="View the first move (F key)" aria-label="View the first move (F key)">&laquo;</button>
+                    <button id="backBtn" class="control-btn" data-tooltip="View the previous move (left arrow key)" aria-label="View the previous move (left arrow key)">&lsaquo;</button>
+                    <button id="forwardBtn" class="control-btn" data-tooltip="View the next move (right arrow key)" aria-label="View the next move (right arrow key)">&rsaquo;</button>
+                    <button id="lastBtn" class="control-btn" data-tooltip="View the last move (L key)" aria-label="View the last move (L key)">&raquo;</button>
                 </div>
 
                 <!-- Hint (best move) -->
-                <button id="hintBtn" class="control-btn" data-tooltip="Receive a hint (H key)">☀︎</button>
+                <button id="hintBtn" class="control-btn" data-tooltip="Receive a hint (H key)" aria-label="Receive a hint (H key)">☀︎</button>
 
                 <!-- Resign game -->
-                <button id="resignBtn" class="control-btn" data-tooltip="Resign the match for a loss (R key)">&#9872;</button>
+                <button id="resignBtn" class="control-btn" data-tooltip="Resign the match for a loss (R key)" aria-label="Resign the match for a loss (R key)">&#9872;</button>
             </div>
         </div>
 
@@ -177,7 +177,7 @@
     <!-- Options modal -->
     <div id="optionsModal" class="modal">
         <div class="modal-content">
-            <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)">&times;</span>
+            <span id="optionsModalCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)" aria-label="Close this window (Esc key)">&times;</span>
 
             <h2>Options</h2>
 
@@ -212,7 +212,7 @@
     <!-- Yes/No modal -->
     <div id="yesNoModal" class="modal">
         <div class="modal-content">
-            <span id="yesNoCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)">&times;</span>
+            <span id="yesNoCloseBtn" class="close-btn" data-tooltip="Close this window (Esc key)" aria-label="Close this window (Esc key)"></span>>&times;</span>
 
             <h2>Confirm</h2>
             <p id="confirmText">Confirm resignation?</p>
