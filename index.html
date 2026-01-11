@@ -14,6 +14,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockfish</title>
 
+    <!-- Icon -->
+    <link rel="icon" type="image/png" href="./img/logo.png">
+
     <!-- Stylesheets -->
     <link rel="stylesheet" href="./css/chessboard-1.0.0.css">
     <link rel="stylesheet" href="./css/styles.css">
@@ -23,10 +26,14 @@
 
 <!-- Body -->
 <body>
-    <h1 class="title" id="title">Blockfish</h1>
-    <h2 class="subtitle">Minecraft-Themed Stockfish Practice</h2>
+    <!-- Title -->
+    <div id="titleContainer" class="title-container">
+        <img src="./img/logo.png" alt="Blockfish Logo" class="logo">
+        <h1 class="title">Blockfish</h1>
+        <h2 class="subtitle">Minecraft-Themed Stockfish Practice</h2>
+    </div>
 
-    <!-- Menu options -->
+    <!-- Menu -->
     <div id="menuContainer" class="menu-container">
 
         <!-- Bot difficulty selection -->
@@ -66,7 +73,7 @@
         <!-- Game container -->
         <div id="gameContainer" class="game-container">
 
-            <!-- Turn status & options -->
+            <!-- Turn status & preferences -->
             <div class="header-row">
                 <div id="status" class="status">Turn: Loading...</div>
                 <button id="optionsBtn" class="control-btn" data-tooltip="Manage preferences (P key)">☰</button>

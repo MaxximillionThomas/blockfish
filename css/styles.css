@@ -17,22 +17,35 @@ body {
 /* =============================
 // ==  Title  ===================
 // ============================= */
+
+.title-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 35px;
+    margin-bottom: 20px;
+    /* Unselectable */
+    user-select: none;
+}
+
+.logo {
+    width: 170px;
+    height: auto;
+    filter: saturate(1.5) brightness(1.5); 
+}
+
 .title, .subtitle {
     /* Pixelated font */
     font-family: 'Press Start 2P', cursive;
     /* Spacing */
     letter-spacing: 2px;
-    margin-left: 50px; 
     /* Color scheme */
     color: #63b59b; 
-    /* Unselectable */
-    user-select: none;
 }
 
 .title {
     font-size: 30px;
-    margin-top: 35px;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     /* 3D block shadow (cracked stone effect) */
     text-shadow: 
         3px 3px 0px #383838, /* Dark gray shadow side */
@@ -56,7 +69,9 @@ body {
 // ============================= */
 
 .menu-container {
-    margin-left: 50px;
+    width: 520px;
+    margin-left: auto;
+    margin-right: auto;
     margin-bottom: 30px;
 }
 
@@ -79,7 +94,7 @@ body {
     gap: 20px;
     width: 100%;
     /* Prevents it from getting too wide */
-    max-width: 550px; 
+    max-width: 520px; 
 }
 
 /* Category Selector (Arrows + Text) */
@@ -407,7 +422,7 @@ input:checked + .slider:before {
 .analysis-pane {
     padding: 10px;
     border-bottom: 2px solid gray;
-    min-height: 170px; 
+    min-height: 220px; 
     display: block;
 }
 
@@ -787,6 +802,23 @@ input:checked + .slider:before {
 // ==  Judgement  ==============
 // ============================= */
 
+/* Analysis dots in move history */
+.move-dot {
+    height: 8px;
+    width: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.dot-best { background-color: #26c281; }       /* Bright Green */
+.dot-excellent { background-color: #96c8da; }  /* Light Blue/Cyan (Lichess style) */
+.dot-good { background-color: #95d852; }       /* Light Green */
+.dot-inaccuracy { background-color: #f0c238; } /* Yellow */
+.dot-mistake { background-color: #e6912c; }    /* Orange */
+.dot-blunder { background-color: #b33430; }    /* Red */
+
 /* Labels for judging moves in Game Review mode */
 .judgement-label {
     font-weight: bold;
@@ -802,25 +834,15 @@ input:checked + .slider:before {
     vertical-align: middle;
 }
 
-.judgement-best { background-color: #0cdb02; } /* Light green */
-.judgement-good { background-color: #089f00; } /* Dark green */
-.judgement-bad { background-color: #ffa500; } /* Orange */
-.judgement-blunder { background-color: #ff0000; } /* Red */
+/* Matches .dot colors */
+.judgement-best { background-color: #26c281; }
+.judgement-excellent { background-color: #96c8da; }
+.judgement-good { background-color: #95d852; }
+.judgement-inaccuracy { background-color: #f0c238; }
+.judgement-mistake { background-color: #e6912c; }
+.judgement-blunder { background-color: #b33430; }
 
-/* Analysis dots in move history */
-.move-dot {
-    height: 8px;
-    width: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-left: 6px;
-    vertical-align: middle;
-}
 
-.dot-best { background-color: #0cdb02; } /* Light green */
-.dot-good { background-color: #089f00; } /* Dark green */
-.dot-bad { background-color: #ffa500; } /* Orange */
-.dot-blunder { background-color: #ff0000; } /* Red */
 
 /* =============================
 // ==  Animation  =============

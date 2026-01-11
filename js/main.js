@@ -31,7 +31,7 @@ var evalHistory = [0];
 var currentEval = 0;
 var hintHistory = [];
 var analysisIndex = 0;
-var analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
+var analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
 var accuracyList = [];
 var currentGameAccuracy = 0;
 var tempBestEval = 0;
@@ -122,12 +122,12 @@ var moveJudgements = [];
 // Filter state: tracks which move types are visible in the PGN
 var moveFilters = {
     'best': true,
+    'excellent': true,
     'good': true,
-    'bad': true,
+    'inaccuracy': true,
+    'mistake': true,
     'blunder': true
 };
-
-
 
 // =============================
 // ==  Bot engine  =============
@@ -138,9 +138,10 @@ botEngine.postMessage('uci');
 
 // Set up responses from the engine
 botEngine.onmessage = function(event) {
-    // == Evaluation bar ===========
     var line = event.data;
+
     /*
+    // == Evaluation bar ===========
     Check for 'score' for use in updating the game evaluation
         1.  Determine the score based on the event data
         2.  Adjust the score to be relative to Whites position
@@ -148,6 +149,13 @@ botEngine.onmessage = function(event) {
     */
     if (line.startsWith('info') && line.includes('score')) {
         var score = 0;
+
+        // Depth tracker (only update evaluation score on final iteration)
+        var currentDepth = 0;
+        if (line.includes('depth')) {
+            var depthString = line.split('depth')[1];
+            currentDepth = parseInt(depthString.split(' ')[0]);
+        }
 
         // 1-A: Mate score
         if (line.includes('mate')) {
@@ -182,12 +190,17 @@ botEngine.onmessage = function(event) {
             // Overwrite the last entry (message runs multiple times before the engine makes the best move)
             evalHistory[evalHistory.length - 1] = currentEval;
         }
-        updateEvalBar(currentEval);
+
+        // Only update on the final search depth iteration
+        if (currentDepth >= botSearchDepth) updateEvalBar(currentEval);
     }
     
     // == Best move ===========
     // Engine produces many messages - we only care about 'bestmove' messages for decision making
     if (event.data.startsWith('bestmove')) {
+        // Force an update in case a 'mate' or 'draw' message is reached before reaching final depth
+        updateEvalBar(currentEval);
+
         // Extract only the notation portion of the best move (ex: 'bestmove e1e3')
         var bestMove = event.data.split(' ')[1];
 
@@ -270,6 +283,10 @@ function makeEngineMove() {
     if (game.game_over()) {
         return;
     }
+
+    // Remind the player that engine moves require time to 'think'
+    $('#status').html("Engine thinking...");
+
     // Send the current game position to the engine
     botEngine.postMessage('position fen ' + game.fen());
     // Search for the best move to a certain depth
@@ -345,61 +362,73 @@ hintEngine.onmessage = function(event) {
             var bestMoveObject = { from: source, to: target };
             hintHistory[analysisIndex] = bestMoveObject;
 
-            // Get the move played
-            var history = game.history({ verbose: true });
-            var movePlayed = history[analysisIndex];
-            var turnColor = movePlayed.color; 
-
-            // Get evaluations
-            var prevEval = evalHistory[analysisIndex];
-            var currEval = evalHistory[analysisIndex + 1];
-
             // Get the best move's evaluation score
             var bestEvalWhitePerspective = tempBestEval;
-            if (turnColor === 'b') {
-                bestEvalBlackPerspective = -tempBestEval;
+            var currentFen = fenHistory[analysisIndex];
+            var turnColor = currentFen.split(' ')[1];
+            if (turnColor === 'b') bestEvalWhitePerspective = -tempBestEval;
+
+            /*
+            Re-evaluate the CURRENT move
+                Overwrite the lower engine depth score evaluation with the higher depth outlook
+                botEngine calculates eval score with a variable search depth (lower elo < 2000), hintEngine uses a fixed high depth
+            */
+            evalHistory[analysisIndex] = bestEvalWhitePerspective;
+
+            // Update the eval score with the recalculated figure
+            if (analysisIndex === viewingIndex) updateEvalBar(bestEvalWhitePerspective);
+
+            // Re-evaluate the PREVIOUS move
+            if (analysisIndex > 0) {
+                // Get the move played
+                var history = game.history({ verbose: true });
+                var prevMoveIndex = analysisIndex - 1;
+                var movePlayed = history[prevMoveIndex];
+
+                // Get evaluations
+                var prevEval = evalHistory[prevMoveIndex];
+                var currEval = evalHistory[analysisIndex];
+
+                // Get the previous best move
+                var prevBestMove = hintHistory[prevMoveIndex];
+
+                // Convert evaluation score to Win Percentage
+                var bestWinChance = calculateEvaluation(prevEval);
+                var playedWinChance = calculateEvaluation(currEval);
+
+                // Adjust perspective for black (if 75% for white, then 25% for black)
+                if (movePlayed.color === 'b') {
+                    bestWinChance = 100 - bestWinChance;
+                    playedWinChance = 100 - playedWinChance;
+                }
+
+                // Calculate the accuracy of winning chance captured relative to the best move
+                // (E.g. best move = 50% win chance, played move = 40% win chance -> 100 - (50 - 40) = 90% accuracy)
+                var accuracy = 100 - (bestWinChance - playedWinChance);
+                // The engine can sometimes rate moves above best move
+                if (accuracy > 100) accuracy = 100;
+
+                // Store the accuracy value
+                accuracyList.push(accuracy);
+
+                // == Move quality judgement dot ==
+                // Determine the move quality judgement
+                var judgement = determineMoveJudgement(movePlayed, prevBestMove, prevEval, currEval, movePlayed.color);
+
+                // Increment the respective judgement count
+                var type = judgement.text
+                if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
+
+                // Store the judgement for later use in filtering (HTML data-index is 1-based)
+                moveJudgements.push({ index: analysisIndex + 1, type: type });
+
+                // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
+                var dotClass = judgement.class.replace('judgement', 'dot');
+
+                // Apply the judgement dot 
+                var $moveSpan = $('.move-link[data-index="' + analysisIndex + '"]');
+                $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
             }
-
-            // Convert evaluation score to Win Percentage
-            var bestWinChance = calculateEvaluation(bestEvalWhitePerspective);
-            var playedWinChance = calculateEvaluation(currEval);
-
-            // Adjust perspective for black (if 75% for white, then 25% for black)
-            if (turnColor === 'b') {
-                bestWinChance = 100 - bestWinChance;
-                playedWinChance = 100 - playedWinChance;
-            }
-
-            // Calculate the accuracy of winning chance captured relative to the best move
-            // (E.g. best move = 50% win chance, played move = 40% win chance -> 100 - (50 - 40) = 90% accuracy)
-            var accuracy = 100 - (bestWinChance - playedWinChance);
-            // The engine can sometimes rate moves above best move
-            if (accuracy > 100) accuracy = 100;
-
-            // Store the accuracy value
-            accuracyList.push(accuracy);
-
-
-            // == Move quality judgement dot ==
-            // Determine the move quality judgement
-            var judgement = determineMoveJudgement(movePlayed, bestMoveObject, prevEval, currEval, turnColor);
-
-            // Increment the respective judgement count
-            var type = judgement.text.toLowerCase();
-            if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
-
-            // Store the judgement for later use in filtering (HTML data-index is 1-based)
-            moveJudgements.push({ index: analysisIndex + 1, type: type });
-
-            // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
-            var dotClass = judgement.class.replace('judgement', 'dot');
-
-            // Match the data-index (pgn span element, starts at 1) to the analysis index (starts at 0)
-            var moveIndex = analysisIndex + 1;
-            var $moveSpan = $('.move-link[data-index="' + moveIndex + '"]');
-
-            // Apply the judgement dot 
-            $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
 
             // == If updating the hint for the viewing index that is currently in view by the user ==
             if (analysisIndex === viewingIndex - 1) {
@@ -812,7 +841,7 @@ function updateStatus() {
         openGameOverModal(moveColor.toLowerCase() !== playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
         gameActive = false;
         highlightKingCheck();
-        currentEval = (game.turn() === 'b') ? 10000 : -10000;
+        currentEval = (game.turn() === 'b') ? 20000 : -20000;
         evalHistory[evalHistory.length - 1] = currentEval;
 
     // Draw
@@ -968,7 +997,7 @@ function triggerMoveAnalysis() {
 
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
-    if (analysisIndex >= game.history().length) {
+    if (analysisIndex > game.history().length) {
         var totalAccuracy = 0;
         var myMoveCount = 0;
 
@@ -1017,21 +1046,18 @@ function renderAnalysisSummary() {
     // Iterate through each move judgement type
     for (var type in analysisCounts) {
         var count = analysisCounts[type];
+        var isEnabled = moveFilters[type];
+        var disabledClass = isEnabled ? '' : 'filter-disabled';
 
-        // Only render types that occurred at least once
-        if (count > 0) {
-            var isEnabled = moveFilters[type];
-            var disabledClass = isEnabled ? '' : 'filter-disabled';
+        // Construct the class for the badge (styling)
+        var badgeClass = 'judgement-label summary-badge judgement-' + type + ' ' + disabledClass;
 
-            // Construct the class for the badge (styling)
-            var badgeClass = 'judgement-label summary-badge judgement-' + type + ' ' + disabledClass;
-
-            // Generate the badge HTML
-            html += '<span class="' + badgeClass + '" ' +
-                        'onclick="toggleMoveFilter(\'' + type + '\')">' + 
-                        count + ' ' + type + 
-                    '</span>';
-        }
+        // Generate the badge HTML
+        html += '<span class="' + badgeClass + '" ' +
+                    'onclick="toggleMoveFilter(\'' + type + '\')">' + 
+                    count + ' ' + type + 
+                '</span>';
+        
     }
 
     // Update the html element
@@ -1205,6 +1231,14 @@ function startNewGame() {
     reviewingGame = false;
     document.getElementById('moveHistoryAnalysisContainer').style.display = 'none';
     moveJudgements = [];
+    moveFilters = {
+        'best': true,
+        'excellent': true,
+        'good': true,
+        'inaccuracy': true,
+        'mistake': true,
+        'blunder': true
+    };
     $('#analysisSummary').empty();
 
     // Reset visuals
@@ -1318,7 +1352,7 @@ function exitToMenu() {
     // Reset controls and refocus
     toggleGameControls(false);
     updateStatus();
-    document.getElementById('catNext').focus();
+    document.getElementById('titleContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
     console.log('Returned to main menu.');
 }
 
@@ -1349,7 +1383,7 @@ function reviewGame() {
     // == Reset game review visuals ==
     // Move type counts
     $('.move-dot').remove();
-    analysisCounts = { best: 0, good: 0, bad: 0, blunder: 0 };
+    analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
     // Move judgements and accuracy
     moveJudgements = [];
     accuracyList = [];
@@ -1844,7 +1878,11 @@ function updateEvalBar(centipawns) {
     evalScoreText = '';
     if (mateIncoming) {
         var movesToMate = 20000 - Math.abs(centipawns);
-        evalScoreText = 'M' + movesToMate;
+        if (movesToMate === 0) {
+            evalScoreText = 'M';
+        } else {
+            evalScoreText = 'M' + movesToMate;
+        }
     } else {
         var pawnAdvantage = Math.abs(centipawns) / 100;
         // Formatted to one decimal place
@@ -2009,7 +2047,7 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 
     // == The best move was played ==
     if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
-        judgement = { text: 'Best', class: 'judgement-best' };
+        judgement = { text: 'best', class: 'judgement-best' };
         return judgement;
     }
 
@@ -2044,7 +2082,7 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 
     // The position was blundered, no need to further analyze move quality
     if (positionBlundered) {
-        judgement = { text: 'Blunder', class: 'judgement-blunder' };
+        judgement = { text: 'blunder', class: 'judgement-blunder' };
         return judgement;
     }
 
@@ -2069,12 +2107,16 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
     }
 
     // Categorize the loss of advantage to determine move judgement
-    if (lostAdvantage <= 10) {
-        judgement = { text: 'Good', class: 'judgement-good' };
-    } else if (lostAdvantage <= 25) {
-        judgement = { text: 'Bad', class: 'judgement-bad' };
+    if (lostAdvantage <= 2) {
+        judgement = { text: 'excellent', class: 'judgement-excellent' };
+    } else if (lostAdvantage <= 5) {
+        judgement = { text: 'good', class: 'judgement-good' };
+    } else if (lostAdvantage <= 10) {
+        judgement = { text: 'inaccuracy', class: 'judgement-inaccuracy' };
+    } else if (lostAdvantage <= 20) {
+        judgement = { text: 'mistake', class: 'judgement-mistake' };
     } else {
-        judgement = { text: 'Blunder', class: 'judgement-blunder' };
+        judgement = { text: 'blunder', class: 'judgement-blunder' };
     }
     
     return judgement;
@@ -2084,11 +2126,10 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
 // ==  Hotkeys  ================
 // =============================
 
-// Ordered by probable frequency of use by chess players
 document.addEventListener('keydown', function(event) {
 
-// Debugging
-console.log(event.key);
+    // Debugging
+    console.log(event.key);
 
     switch (event.key) {
         // Navigate back
