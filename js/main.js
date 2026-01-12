@@ -6,34 +6,20 @@
  */
 
 // =============================
-// ==  Fundamentals  ===========
+// ==  Constants  ==============
 // =============================
 
-// Establish the logic and rules of the chess game
+// Game object for tracking state
 const game = new Chess();
-let playerColor = 'white';
-let gameActive = false;
-let selectedSquare = null;
-let gettingHint = false;
-let reviewingGame = false;
 
-// Establish preference trackers
-let highlightsEnabled = true;
-let clickMovesEnabled = true;
-let dragMovesEnabled = true;
-let evalBarEnabled = true;
-
-// Store move data history for navigation and analysis
-let fenHistory = [];
-let viewingIndex = 0;
-let evalHistory = [0];
-let currentEval = 0;
-let hintHistory = [];
-let analysisIndex = 0;
-let analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
-let accuracyList = [];
-let currentGameAccuracy = 0;
-let tempBestEval = 0;
+// Create configurations for the chessboard before it is created
+const config = {
+    draggable: true,
+    position: 'start',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd
+};
 
 // Store sounds used for game actions
 const sounds = {
@@ -48,24 +34,11 @@ const sounds = {
     select: new Audio('audio/select.mp3'),
     hint: new Audio('audio/hint.mp3')
 };
-
 // Ensure loading sound loops while active
 sounds.loading.loop = true;
 
-// Initialize the Stockfish chess engine
+// Stockfish chess engine - to be played against
 const botEngine = new Worker('js/stockfish.js');
-
-// Engine timeout will be later used for resetting the engine
-let botEngineTimeout = null;
-
-/* 
-Configure engine starting settings 
-    The engine has different difficulty levels (0-20). This attribute will be set later based on Elo
-    Search depth determines how many moves ahead the engine will consider
-    Randomization factor determines how often the engine will make a sub-optimal move (for lower difficulties)
-*/
-let botSearchDepth = 1;
-let randomizationFactor = 0;   
 
 // Bot difficulty categories
 const difficultyCategories = [
@@ -77,7 +50,12 @@ const difficultyCategories = [
     { name: "Grandmaster", min: 2600, max: 3000 }
 ];
 
-// 2. Profiles mapping Elo to engine settings
+/* 
+Profiles mapping Elo (user-selected) to botEngine settings
+    Skill level: The "glasses" through which the engine views the board. 0 = flawed judgement, 20 = precise, 
+    Search depth determines how many moves ahead the engine will consider
+    Randomization factor determines how often the engine will make a sub-optimal move (for lower difficulties)
+*/
 const botProfiles = {
     100:  { skill: 0,  depth: 1,  random: 0.80 },
     200:  { skill: 0,  depth: 1,  random: 0.70 },
@@ -111,14 +89,51 @@ const botProfiles = {
     3000: { skill: 20, depth: 22, random: 0.00 }
 };
 
-// Starting configurations
+// Set up an engine specifically for generating hints
+const hintEngine = new Worker('js/stockfish.js');
+const hintDifficulty = 20;
+const hintSearchDepth = 10;
+
+// =============================
+// ==  Variables  ==============
+// =============================
+
+// Add logic for the chess game object
+let playerColor = 'white';
+let gameActive = false;
+let selectedSquare = null;
+let gettingHint = false;
+let reviewingGame = false;
+
+// Establish preference trackers
+let legalMoveHighlightsEnabled = true;
+let clickMovesEnabled = true;
+let dragMovesEnabled = true;
+let evalBarEnabled = true;
+
+// Store move data history for navigation and analysis
+let fenHistory = [];
+let viewingIndex = 0;
+let evalHistory = [0];
+let currentEval = 0;
+let tempBestEval = 0;
+let hintHistory = [];
+let analysisIndex = 0;
+let analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+let moveJudgements = [];
+let accuracyList = [];
+let currentGameAccuracy = 0;
+
+// Configure engineBot starting settings
+let botEngineTimeout = null;
+let botSearchDepth = 1;
+let randomizationFactor = 0;   
+
+// Starting difficulty configurations
 let currentCategoryIndex = 0; 
 let currentElo = 100;  
 
-// Store move judgements
-let moveJudgements = [];
-
-// Filter state: tracks which move types are visible in the PGN
+// Filter state: tracks which move types are visible in the PGN (move analysis)
 let moveFilters = {
     'best': true,
     'excellent': true,
@@ -129,8 +144,561 @@ let moveFilters = {
 };
 
 // =============================
-// ==  Bot engine  =============
+// ==  Board setup  ============
 // =============================
+
+// Initialize the chessboard (div with id 'myBoard') 
+const board = Chessboard('myBoard', config);
+
+ // Update the board status on game start
+updateStatus();
+
+// =============================
+// ==  Game state  =============
+// =============================
+
+// Reset the game to the starting position
+function startNewGame() {
+    // Disallow accidental new game start-up
+    if (gameActive) return;
+    
+    // Reset game review state
+    reviewingGame = false;
+    document.getElementById('moveHistoryAnalysisContainer').style.display = 'none';
+    moveJudgements = [];
+    moveFilters = {
+        'best': true,
+        'excellent': true,
+        'good': true,
+        'inaccuracy': true,
+        'mistake': true,
+        'blunder': true
+    };
+    $('#analysisSummary').empty();
+
+    // Reset visuals
+    closeGameOverModal();
+    removeAllHighlights();
+
+    // Clear queued move and reset game logic
+    window.clearTimeout(botEngineTimeout);
+    game.reset();
+
+    // Initialize list of FEN position & evaluation score history
+    fenHistory = [game.fen()];
+    viewingIndex = 0;
+    evalHistory = [0];
+    currentEval = 0;
+    updateEvalBar(currentEval);
+
+    // Reveal the move history panel and control buttons
+    document.getElementById('optionsBtn').style.display = '';
+    document.getElementById('undoBtn').style.display = '';
+    document.getElementById('hintBtn').style.display = '';
+    document.getElementById('resignBtn').style.display = '';
+
+    // Disable mid-game control changes
+    gameActive = true;
+    toggleGameControls(true);
+
+    // Set the board orientation based on player color
+    playerColor = document.querySelector('input[name="color"]:checked').value;
+    board.orientation(playerColor);
+
+    // Replace CSS class for interactivity with only the players color pieces
+    let boardElement = document.getElementById('myBoard');
+    boardElement.classList.remove('board-white', 'board-black');
+    boardElement.classList.add('board-' + playerColor);
+
+    // Reset the board 
+    board.start();
+    updateStatus();
+    botEngine.postMessage('ucinewgame');
+
+    // Play the start game sound
+    playSound('start');
+
+    // Focus the center of the board
+    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Engine moves first if playing as black
+    if (playerColor === 'black') {
+        window.setTimeout(makeEngineMove, 250);
+    }
+}
+
+// Update the state of the game
+function updateStatus() {
+    // If the game is not active, prompt the user
+    if (!gameActive) {
+        $('#status').html('Click “Start New Game” to begin playing.');
+        return;
+    }
+
+    // Initialize variables for active game
+    let status = '';
+    let moveColor = 'White';
+
+    // Determine whose turn it is
+    if (game.turn() === 'b') {
+        moveColor = 'Black';
+    }
+
+    // Checkmate
+    if (game.in_checkmate()) {
+        status = 'Game over. ' + moveColor + ' has been checkmated.';
+        openGameOverModal(moveColor.toLowerCase() !== playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
+        gameActive = false;
+        highlightKingCheck();
+        currentEval = (game.turn() === 'b') ? 20000 : -20000;
+        evalHistory[evalHistory.length - 1] = currentEval;
+
+    // Draw
+    } else if (game.in_draw()) {
+        // Stalemate
+        if (game.in_stalemate()) {
+            status = 'Game over.<br>A draw by stalemate was reached.';
+            openGameOverModal('Draw', 'Stalemate');
+        // Repetition
+        } else if (game.in_threefold_repetition()) {
+            if (game.in_check()) highlightKingCheck();
+            status = 'Game over.<br>A draw by threefold repetition was reached.';
+            openGameOverModal('Draw', 'Threefold Repetition');
+        // Insufficient material
+        } else if (game.insufficient_material()) {
+            status = 'Game over.<br>A draw by insufficient material was reached.';
+            openGameOverModal('Draw', 'Insufficient Material');
+        }
+        gameActive = false;
+        currentEval = 0;
+        evalHistory[evalHistory.length - 1] = currentEval;
+
+    // Ongoing game
+    } else {
+        status = moveColor + ' to move.';
+        if (game.in_check()) {
+            highlightKingCheck();
+            status += ' ' + moveColor + ' is in check.';
+        }
+    }
+
+    // Update visuals
+    $('#status').html(status);
+    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Update the move history div
+    updateMoveHistory();
+
+    // Toggle navigation controls as appropriate
+    toggleNavigation();
+
+    // Unlock game controls if the game is over
+    if (!gameActive) toggleGameControls(false);
+}
+
+// Save the current board position to the FEN history
+function fenSnapshot() {
+    // Save board state
+    fenHistory.push(game.fen());
+    viewingIndex = fenHistory.length - 1;
+    // Save evaluation state
+    evalHistory.push(currentEval);
+}
+
+// Trigger the engine to make a move
+function makeEngineMove() {
+    // Halt thinking if the game is over
+    if (game.game_over()) return;
+
+    // Remind the player that engine moves require time to 'think'
+    $('#status').html("Engine thinking...");
+
+    // Send the current game position to the engine
+    botEngine.postMessage('position fen ' + game.fen());
+    // Search for the best move to a certain depth
+    botEngine.postMessage('go depth ' + botSearchDepth);
+}
+
+// Close the Game Over modal and return to the main menu
+function exitToMenu() {
+    // Close the modal
+    closeGameOverModal();
+
+    // Stop pending actions and reset flags
+    window.clearTimeout(botEngineTimeout);
+    gameActive = false;
+    reviewingGame = false;
+
+    // Reset visuals and game logic
+    removeAllHighlights();
+    game.reset();
+    board.start();
+
+    // Reset move history
+    fenHistory = [game.fen()];
+    viewingIndex = 0;
+    evalHistory = [0];
+    currentEval = 0;
+    updateEvalBar(0);
+
+    // Reset controls and refocus
+    toggleGameControls(false);
+    updateStatus();
+    document.getElementById('titleContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    console.log('Returned to main menu.');
+}
+
+// Resign the game for a loss
+function resignGame() {
+    openYesNoModal();
+}
+
+// Undo the previous move
+function undoMove() {
+    // 1. Game must be in progress
+    if (!gameActive) return;
+    
+    // 2. One move must have beeen completed by BOTH sides before the player may undo a move
+    if (game.history().length < 2) return;
+
+    // 3. It must be the players turn
+    if (game.turn() !== playerColor.charAt(0)) return;
+
+    // Undo the players previous move and the engines response
+    game.undo();
+    game.undo();
+
+    // Remove the previous moves from the move history
+    fenHistory.pop();
+    fenHistory.pop();
+    evalHistory.pop();
+    evalHistory.pop();
+
+    // Reset the evaluation score the the last valid value
+    if (evalHistory.length > 0) {
+        currentEval = evalHistory[evalHistory.length - 1];
+    } else {
+        currentEval = 0;
+    }
+
+    // Update the visual board
+    viewingIndex = fenHistory.length - 1;
+    board.position(game.fen());
+
+    // Reset visual helpers and trigger audio 
+    updateStatus();
+    removeCurrentMoveHighlights();
+    selectedSquare = null;
+    updateHistoryHighlights();
+    updateEvalBar(currentEval);
+    playHistoricalMoveSound();
+}
+
+
+// =============================
+// ==  Player interaction  =====
+// =============================
+
+// Prevent illegal interactions and highlight legal moves
+function onDragStart (source, piece) {
+    // If the player prefers click-moving
+    if (!dragMovesEnabled) return false;
+
+    // No game in progress
+    if (!gameActive) return false;
+
+    // Prevent moving pieces when viewing previous positions
+    if (viewingIndex < fenHistory.length - 1) return false;
+
+    // Game over
+    if (game.game_over()) return false;
+    
+    // Opponents turn
+    if ((playerColor === 'white' && piece.search(/^b/) !== -1) ||
+        (playerColor === 'black' && piece.search(/^w/) !== -1)) {
+        return false;
+    }
+
+    // Clear previous click selections before handling this piece
+    if (selectedSquare !== null) selectedSquare = null;
+
+    // Highlight only the selected piece and it's legal moves
+    removeCurrentMoveHighlights();
+    highlightSquare(source);
+    highlightMoves(source);
+
+    return true;
+}
+
+// Allow piece drop interactions between chess pieces and squares
+function onDrop (source, target) {
+    // Classify the move as a 'click' if the piece is dragged and dropped to the same square
+    if (source === target) {
+        handleSquareClickInteractions(source);
+
+        // If in drag-mode, only display legal move highlighting while holding the piece (onDrag, not onDrop)
+        if (!clickMovesEnabled) removeCurrentMoveHighlights();
+    
+        // Visually return the piece to it's original square
+        return 'snapback';
+    }
+
+    // Check if the move is legal 
+    let move = game.move({
+      from: source,
+      to: target,
+      // Queen promotion as default
+      promotion: 'q' 
+    });
+
+    // If the move is illegal, return the piece to its original square
+    if (move === null) {
+        selectedSquare = null;
+        removeCurrentMoveHighlights();
+        return 'snapback';
+    }
+
+    // Clear click-moving state after a successful move
+    selectedSquare = null;
+
+    // Play a sound and wiggle the piece after the move has passed validation
+    playMoveSound(move);
+    wiggleAnimation(target, 50);
+
+
+    // Highlight the players move for awareness
+    removeCurrentMoveHighlights();
+    highlightLastMove(source, target); 
+
+    // Save the current position to the FEN history
+    fenSnapshot();
+
+    // Update the turn status text
+    updateStatus();
+
+    // Make the engine move after a short delay
+    window.setTimeout(makeEngineMove, 250);
+}
+
+// Force the board to accurately reflect the game state
+function onSnapEnd () {
+    board.position(game.fen());
+}
+
+// Highlight the square of the piece that the player has clicked
+function highlightSquare(square) {
+    let $square = $('#myBoard .square-' + square);
+    $square.addClass('highlight-source');
+}
+
+// Highlight the legal moves for the piece that the player has clicked
+function highlightMoves(square) {
+    if (legalMoveHighlightsEnabled) {
+        // Get legal moves for the piece
+        let moves = game.moves({
+            square: square,
+            verbose: true
+        });
+
+        // Highlight every legal square
+        for (let i = 0; i < moves.length; i++) {
+            $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
+        }
+    }
+}
+
+// Remove highlighting of source square and legal move squares
+function removeCurrentMoveHighlights() {
+    // Highlights
+    $('#myBoard .square-55d63').removeClass('highlight-source');
+    $('#myBoard .square-55d63').removeClass('highlight-move');
+    $('#myBoard .square-55d63').removeClass('highlight-hint');
+    if (game.in_check() === false) removeInCheckHighlights();
+
+    // Status bar text
+    let currentText = $('#status').text();
+    if (currentText.startsWith("Best move:")) updateStatus();
+}
+
+// Remove the highlights of the last move played
+function removePreviousMoveHighlights() {
+    $('#myBoard .square-55d63').removeClass('highlight-played');
+}
+
+// Update the highlights during previous move navigation
+function updateHistoryHighlights() {
+    // Don't show highlights on the first move
+    if (viewingIndex === 0) {
+        removePreviousMoveHighlights();
+        return;
+    }
+
+    // Retrieve the full move history (verbose allows for to/from details)
+    let history = game.history({verbose: true});
+
+    // Highlight the last move's details
+    let moveIndex = viewingIndex - 1
+    if (history[moveIndex]) {
+        let move = history[moveIndex];
+        highlightLastMove(move.from, move.to);
+    }
+}
+
+// Highlight the last move played
+function highlightLastMove(source, target) {
+    removePreviousMoveHighlights();
+    $('#myBoard .square-' + source).addClass('highlight-played');
+    $('#myBoard .square-' + target).addClass('highlight-played');
+}
+
+
+// Highlight the King when in check
+function highlightKingCheck(color) {
+    // Establish the target piece (wK or bK)
+    let kingColor = color || game.turn();
+    let kingNotation = kingColor + 'K';
+    let kingSquare = null;
+
+    // Get the board state
+    let boardSquares = board.position();
+
+    // Locate the target piece
+    for (let square in boardSquares) {
+        if (boardSquares[square] === kingNotation) {
+            kingSquare = square;
+            // King located - stop searching
+            break;
+        }
+    }
+
+    // Apply the class
+    removeCurrentMoveHighlights();
+    $('#myBoard .square-' + kingSquare).addClass('in-check');
+
+    // Apply a wiggle animation
+    wiggleAnimation(kingSquare, 250);
+}
+
+// Remove in-check highlights
+function removeInCheckHighlights() {
+    $('#myBoard .square-55d63').removeClass('in-check');
+}
+
+// Highlight the best move when a hint is requested
+function highlightHint(source, target) {
+    // Clear previous hints
+    $('#myBoard .square-55d63').removeClass('highlight-hint');
+
+    // Highlight the start and end squares of the hinted move
+    $('#myBoard .square-' + source).addClass('highlight-hint');
+    $('#myBoard .square-' + target).addClass('highlight-hint');
+}
+
+// Remove all highlights
+function removeAllHighlights() {
+    removePreviousMoveHighlights();
+    removeCurrentMoveHighlights();
+    removeInCheckHighlights();
+}
+
+// Enable and disable legal move highlighting ability
+function toggleLegalMoveHighlights() {
+    legalMoveHighlightsEnabled = !legalMoveHighlightsEnabled;
+    playSound('select');
+}
+
+// Handle the logic of square clicks under different scenarios
+function handleSquareClickInteractions(square) {
+    // If the user prefers drag-moving
+    if (!clickMovesEnabled) return;
+    
+    // Prevent pre-game interactions
+    if (!gameActive) return;
+    
+    // Scenario 1 - player clicked a square to select a piece
+    // Current selection is null - no piece previously selected
+    if (selectedSquare === null) {
+        let piece = game.get(square);
+        
+        // Must be a piece, and must be the players color
+        if (!piece || piece.color !== game.turn()) return;
+
+        // Reset highlights and status bar text
+        removeCurrentMoveHighlights();
+
+        // Select it
+        selectedSquare = square;
+        highlightSquare(square);
+        highlightMoves(square);
+        return;
+    }
+
+    // Scenario 2 - player clicked a square to move a piece
+    // 2A. Same square clicked - deselect it
+    if (square === selectedSquare) {
+        selectedSquare = null;
+        removeCurrentMoveHighlights();
+        return;
+    }
+
+    // 2B. New piece of the same color selected - change selection
+    let piece = game.get(square);
+    // If(piece) returns true if selection is not null - piece.color crashes on null
+    if (piece && piece.color === game.turn()) {
+        selectedSquare = square;
+        removeCurrentMoveHighlights();
+        highlightSquare(square);
+        highlightMoves(square);
+        return;
+    }
+
+    // 2C. Attempt to move the selected piece to the target square
+    let move = game.move({
+        from: selectedSquare,
+        to: square,
+        promotion: 'q'
+    });
+
+    // 2D. Resolve the move
+    if (move === null) {
+        // Illegal move
+        selectedSquare = null;
+        removeCurrentMoveHighlights();
+    } else {
+        // Legal move
+        board.position(game.fen());
+        fenSnapshot();
+        updateStatus();
+        selectedSquare = null;
+        playMoveSound(move);
+        wiggleAnimation(square, 250);
+        if (game.in_check() === false) removeCurrentMoveHighlights();
+        window.setTimeout(makeEngineMove, 250);
+    }
+}
+
+// Perform an action based on the type of square clicked
+function onSquareClick(event) {
+    // 'this' is the specific .square-55d63 element that was clicked
+    let square = $(this).attr('data-square');
+    handleSquareClickInteractions(square);
+}
+
+// Navigate to a move by move-history click
+function moveHistoryNavigation() {
+    // Get the index of the clicked move
+    let index = $(this).attr('data-index');
+
+    // Navigate to the viewing index of the move
+    viewingIndex = parseInt(index);
+    navigationUpdate();
+}
+
+// =============================
+// ==  Engine logic  ===========
+// =============================
+
+// ==  Bot engine  =============
 
 // Awaken the engine
 botEngine.postMessage('uci'); 
@@ -185,9 +753,8 @@ botEngine.onmessage = function(event) {
         }
 
         // 2: Adjust the score
-        if (game.turn() === 'b') {
-            score = -score;
-        }
+        if (game.turn() === 'b') score = -score;
+        
 
         // 3: Update the eval bar and score history
         currentEval = score;
@@ -245,7 +812,7 @@ botEngine.onmessage = function(event) {
                     // If the move was legal, save source and target for highlighting purposes
                     if (engineMove !== null) {
                         source = randomMove.from;
-                        target = randomIndex.to;
+                        target = randomMove.to;
                         promotion = randomMove.promotion || '';
                     // The move was illegal, remove it from the list and try again
                     } else {
@@ -282,30 +849,9 @@ botEngine.onmessage = function(event) {
     }
 };
 
-// Trigger the engine to make a move
-function makeEngineMove() {
-    // Halt thinking if the game is over
-    if (game.game_over()) {
-        return;
-    }
+// ==  Hint engine  ============
 
-    // Remind the player that engine moves require time to 'think'
-    $('#status').html("Engine thinking...");
-
-    // Send the current game position to the engine
-    botEngine.postMessage('position fen ' + game.fen());
-    // Search for the best move to a certain depth
-    botEngine.postMessage('go depth ' + botSearchDepth);
-}
-
-// =============================
-// ==  Hint engine  =============
-// =============================
-
-// Set up an engine specifically for generating hints (same process as bot engine)
-const hintEngine = new Worker('js/stockfish.js');
-const hintDifficulty = 20;
-const hintSearchDepth = 10;
+// Same setup process as botEngine
 hintEngine.postMessage('uci'); 
 hintEngine.postMessage('setoption name Hash value 32');
 hintEngine.postMessage('setoption name Threads value 2');
@@ -439,10 +985,8 @@ hintEngine.onmessage = function(event) {
             }
 
             // == If updating the hint for the viewing index that is currently in view by the user ==
-            if (analysisIndex === viewingIndex - 1) {
-                navigationUpdate();
-            }
-
+            if (analysisIndex === viewingIndex - 1) navigationUpdate();
+            
             // == Process the next move ==
             analysisIndex ++;
             triggerMoveAnalysis();
@@ -491,494 +1035,80 @@ hintEngine.onmessage = function(event) {
     }
 };
 
+// Trigger a hint request
+function getHint() {
+    // State checks
+    if (!gameActive) return;
+    if (game.turn() !== playerColor.charAt(0)) return;
+    if (viewingIndex !== fenHistory.length - 1) return;
+
+    // Prevent residual highlights in 'else' fallback of hintEngine.onmessage when starting a new game mid move-analysis
+    gettingHint = true;
+
+    // Request the best move from the hint engine
+    hintEngine.postMessage('position fen ' + game.fen());
+    hintEngine.postMessage('go depth ' + hintSearchDepth);
+
+    playSound('hint');
+}
+
 // =============================
-// ==  Player  =================
+// ==  Game analysis  ==========
 // =============================
 
-// Prevent illegal interactions and highlight legal moves
-function onDragStart (source, piece) {
-    // If the player prefers click-moving
-    if (!dragMovesEnabled) {
-        return false;
-    }
+// Review the previous game
+function reviewGame() {
+    reviewingGame = true;
 
-    // No game in progress
-    if (!gameActive) {
-        return false;
-    }   
+    // Play loading sound
+    playSound('loading');
 
-    // Prevent moving pieces when viewing previous positions
-    if (viewingIndex < fenHistory.length - 1) {
-        return false;
-    }
-
-    // Game over
-    if (game.game_over()){
-        return false;
-    }
-
-    // Opponents turn
-    if ((playerColor === 'white' && piece.search(/^b/) !== -1) ||
-        (playerColor === 'black' && piece.search(/^w/) !== -1)) {
-        return false;
-    }
-
-    // Clear previous click selections before handling this piece
-    if (selectedSquare !== null) {
-        selectedSquare = null;
-
-    }
-
-    // Highlight only the selected piece and it's legal moves
+    // == Reset board visuals == 
+    closeGameOverModal();
+    navigateFirst();
     removeCurrentMoveHighlights();
-    highlightSquare(source);
-    highlightMoves(source);
 
-    return true;
-}
+    // == Reset game review visuals ==
+    // Move type counts
+    $('.move-dot').remove();
+    analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
+    // Move judgements and accuracy
+    moveJudgements = [];
+    accuracyList = [];
+    currentGameAccuracy = 0;
+    // Analysis loading bar
+    document.getElementById('analysisLoader').style.display = 'flex';
+    document.getElementById('analysisResult').style.display = 'none';
+    document.getElementById('analysisPercent').innerText = '0';
+    document.getElementById('analysisProgressBar').style.width = '0%';
 
-// Allow piece drop interactions between chess pieces and squares
-function onDrop (source, target) {
-    // Classify the move as a 'click' if the piece is dragged and dropped to the same square
-    if (source === target) {
-        handleSquareClickInteractions(source);
+    // == Hide controls ==
+    openOptionsBtn.style.display = 'none';
+    undoBtn.style.display = 'none';
+    hintBtn.style.display = 'none';
+    resignBtn.style.display = 'none';
 
-        // If in drag-mode, only display legal move highlighting while holding the piece (onDrag, not onDrop)
-        if (!clickMovesEnabled) {
-            removeCurrentMoveHighlights();
-        }
+    // == Display move history ==
+    document.getElementById('moveHistoryAnalysisContainer').style.display = 'flex';
 
-        // Visually return the piece to it's original square
-        return 'snapback';
-    }
+    // == Dim opponent moves ==
+    $('.move-link').each(function() {
+        let index = parseInt($(this).attr('data-index'));
 
-    // Check if the move is legal 
-    let move = game.move({
-      from: source,
-      to: target,
-      // Queen promotion as default
-      promotion: 'q' 
-    });
+        // Determine whose move it is (data-index is 1-based)
+        let isWhiteMove = (index % 2 !== 0);
+        let isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
 
-    // If the move is illegal, return the piece to its original square
-    if (move === null) {
-        selectedSquare = null;
-        removeCurrentMoveHighlights();
-        return 'snapback';
-    }
-
-    // Clear click-moving state after a successful move
-    selectedSquare = null;
-
-    // Play a sound and wiggle the piece after the move has passed validation
-    playMoveSound(move);
-    wiggleAnimation(target, 50);
-
-
-    // Highlight the players move for awareness
-    removeCurrentMoveHighlights();
-    highlightLastMove(source, target); 
-
-    // Save the current position to the FEN history
-    fenSnapshot();
-
-    // Update the turn status text
-    updateStatus();
-
-    // Make the engine move after a short delay
-    window.setTimeout(makeEngineMove, 250);
-}
-
-// Highlight the square of the piece that the player has clicked
-function highlightSquare(square) {
-    let $square = $('#myBoard .square-' + square);
-    $square.addClass('highlight-source');
-}
-
-// Highlight the legal moves for the piece that the player has clicked
-function highlightMoves(square) {
-    if (highlightsEnabled) {
-        // Get legal moves for the piece
-        let moves = game.moves({
-            square: square,
-            verbose: true
-        });
-
-        // Highlight every legal square
-        for (let i = 0; i < moves.length; i++) {
-            $('#myBoard .square-' + moves[i].to).addClass('highlight-move');
-        }
-    }
-}
-
-// Remove highlighting of source square and legal move squares
-function removeCurrentMoveHighlights() {
-    // Highlights
-    $('#myBoard .square-55d63').removeClass('highlight-source');
-    $('#myBoard .square-55d63').removeClass('highlight-move');
-    $('#myBoard .square-55d63').removeClass('highlight-hint');
-    if (game.in_check() === false) removeInCheckHighlights();
-
-    // Status bar text
-    let currentText = $('#status').text();
-    if (currentText.startsWith("Best move:")) updateStatus();
-}
-
-// Remove the highlights of the last move played
-function removePreviousMoveHighlights() {
-    $('#myBoard .square-55d63').removeClass('highlight-played');
-}
-
-// Update the highlights during previous move navigation
-function updateHistoryHighlights() {
-    // Don't show highlights on the first move
-    if (viewingIndex === 0) {
-        removePreviousMoveHighlights();
-        return;
-    }
-
-    // Retrieve the full move history (verbose allows for to/from details)
-    let history = game.history({verbose: true});
-
-    // Highlight the last move's details
-    let moveIndex = viewingIndex - 1
-    if (history[moveIndex]) {
-        let move = history[moveIndex];
-        highlightLastMove(move.from, move.to);
-    }
-}
-
-// Highlight the last move played
-function highlightLastMove(source, target) {
-    removePreviousMoveHighlights();
-    $('#myBoard .square-' + source).addClass('highlight-played');
-    $('#myBoard .square-' + target).addClass('highlight-played');
-}
-
-// Remove in-check highlights
-function removeInCheckHighlights() {
-    $('#myBoard .square-55d63').removeClass('in-check');
-}
-
-// Remove all highlights
-function removeAllHighlights() {
-    removePreviousMoveHighlights();
-    removeCurrentMoveHighlights();
-    removeInCheckHighlights();
-}
-
-// Enable and disable legal move highlighting ability
-function toggleHighlights() {
-    highlightsEnabled = !highlightsEnabled;
-    playSound('select');
-}
-
-// Handle the logic of square clicks under different scenarios
-function handleSquareClickInteractions(square) {
-    // If the user prefers drag-moving
-    if (!clickMovesEnabled) {
-        return;
-    }
-
-    // Prevent pre-game interactions
-    if (!gameActive) {
-        return;
-    }
-
-    // Scenario 1 - player clicked a square to select a piece
-    // Current selection is null - no piece previously selected
-    if (selectedSquare === null) {
-        let piece = game.get(square);
+        // Dim moves
+        if (!isPlayerMove) $(this).addClass('move-dimmed');
         
-        // Must be a piece, and must be the players color
-        if (!piece || piece.color !== game.turn()) {
-            return;
-        }
-
-        // Reset highlights and status bar text
-        removeCurrentMoveHighlights();
-
-        // Select it
-        selectedSquare = square;
-        highlightSquare(square);
-        highlightMoves(square);
-        return;
-    }
-
-    // Scenario 2 - player clicked a square to move a piece
-    // 2A. Same square clicked - deselect it
-    if (square === selectedSquare) {
-        selectedSquare = null;
-        removeCurrentMoveHighlights();
-        return;
-    }
-
-    // 2B. New piece of the same color selected - change selection
-    let piece = game.get(square);
-    // If(piece) returns true if selection is not null - piece.color crashes on null
-    if (piece && piece.color === game.turn()) {
-        selectedSquare = square;
-        removeCurrentMoveHighlights();
-        highlightSquare(square);
-        highlightMoves(square);
-        return;
-    }
-
-    // 2C. Attempt to move the selected piece to the target square
-    let move = game.move({
-        from: selectedSquare,
-        to: square,
-        promotion: 'q'
     });
 
-    // 2D. Resolve the move
-    if (move === null) {
-        // Illegal move
-        selectedSquare = null;
-        removeCurrentMoveHighlights();
-    } else {
-        // Legal move
-        board.position(game.fen());
-        fenSnapshot();
-        updateStatus();
-        selectedSquare = null;
-        playMoveSound(move);
-        wiggleAnimation(square, 250);
-        if (game.in_check() === false) removeCurrentMoveHighlights();
-        window.setTimeout(makeEngineMove, 250);
-    }
+
+    // == Trigger batch move analysis ==
+    analyzeGame();
 }
 
-// Perform an action based on the type of square clicked
-function onSquareClick(event) {
-    // 'this' is the specific .square-55d63 element that was clicked
-    let square = $(this).attr('data-square');
-    handleSquareClickInteractions(square);
-}
-// Bind the square click function to board clicks 
-$('#myBoard').on('click', '.square-55d63', onSquareClick);
-
-// Wiggle animation on piece hover/drop
-function wiggleAnimation(target, delay) {
-    // If no delay explicitly provided, wait 50ms for the board to finish snapping/redrawing
-    let waitTime = delay || 50;
-
-    window.setTimeout(function() {
-        // Find the square and piece image
-        let $targetSquare = $('#myBoard .square-' + target);
-        let $targetImage = $targetSquare.find('img');
-
-        // Ensure the element exists (has loaded)
-        if ($targetImage.length > 0) {
-            // Apply the wiggle animation class
-            $targetImage.addClass('drop-wiggle');
-            
-            // Remove the class after the animation ends (allows for wiggling on next interaction)
-            window.setTimeout(function() {
-                $targetImage.removeClass('drop-wiggle');
-            }, 400);
-        }
-    }, waitTime);   
-}
-
-// Play a sound when hovering over a piece of the players color
-function playHoverSound() {
-    // Retrieve the piece data
-    let piece = $(this).attr('data-piece');
-    
-    // Play the audio if the piece belongs to the player
-    if (piece.charAt(0) === playerColor.charAt(0)) {
-        playSound('hover');
-    }
-}
-// Bind the hover sound function to piece-hovering
-$('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
-
-// =============================
-// ==  Game  ===================
-// =============================
-
-// ==========  Functions  ==========
-// Toggle on/off game controls based on game state (true = cannot be changed mid-game)
-function toggleGameControls(gameInProgress) {
-    // Difficulty select dropdown
-    document.getElementById('catPrevious').disabled = gameInProgress;
-    document.getElementById('catNext').disabled = gameInProgress;
-    document.getElementById('eloSlider').disabled = gameInProgress;
-    // Color radio buttons
-    let colorRadios = document.querySelectorAll('input[name="color"]');
-    colorRadios.forEach(function(radio) {
-        radio.disabled = gameInProgress;
-    });
-    // Start new game button
-    document.getElementById('startBtn').disabled = gameInProgress;
-
-    // In-game options
-    // Options button
-    document.getElementById('optionsBtn').disabled = !gameInProgress;
-    // Undo button
-    document.getElementById('undoBtn').disabled = !gameInProgress;
-    // Navigation buttons
-    toggleNavigation();
-    // Hint button
-    document.getElementById('hintBtn').disabled = !gameInProgress;
-    // Resign button
-    document.getElementById('resignBtn').disabled = !gameInProgress;
-}
-
-// Update the game status text
-function updateStatus() {
-    // If the game is not active, prompt the user
-    if (!gameActive) {
-        $('#status').html('Click “Start New Game” to begin playing.');
-        return;
-    }
-
-    // Initialize variables for active game
-    let status = '';
-    let moveColor = 'White';
-
-    // Determine whose turn it is
-    if (game.turn() === 'b') {
-        moveColor = 'Black';
-    }
-
-    // Checkmate
-    if (game.in_checkmate()) {
-        status = 'Game over. ' + moveColor + ' has been checkmated.';
-        openGameOverModal(moveColor.toLowerCase() !== playerColor ? 'You Win!' : 'You Lost', 'Checkmate');
-        gameActive = false;
-        highlightKingCheck();
-        currentEval = (game.turn() === 'b') ? 20000 : -20000;
-        evalHistory[evalHistory.length - 1] = currentEval;
-
-    // Draw
-    } else if (game.in_draw()) {
-        // Stalemate
-        if (game.in_stalemate()) {
-            status = 'Game over.<br>A draw by stalemate was reached.';
-            openGameOverModal('Draw', 'Stalemate');
-        // Repetition
-        } else if (game.in_threefold_repetition()) {
-            if (game.in_check()) highlightKingCheck();
-            status = 'Game over.<br>A draw by threefold repetition was reached.';
-            openGameOverModal('Draw', 'Threefold Repetition');
-        // Insufficient material
-        } else if (game.insufficient_material()) {
-            status = 'Game over.<br>A draw by insufficient material was reached.';
-            openGameOverModal('Draw', 'Insufficient Material');
-        }
-        gameActive = false;
-        currentEval = 0;
-        evalHistory[evalHistory.length - 1] = currentEval;
-
-    // Ongoing game
-    } else {
-        status = moveColor + ' to move.';
-        if (game.in_check()) {
-            highlightKingCheck();
-            status += ' ' + moveColor + ' is in check.';
-        }
-    }
-
-    // Update visuals
-    $('#status').html(status);
-    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Update the move history div
-    updateMoveHistory();
-
-    // Toggle navigation controls as appropriate
-    toggleNavigation();
-
-    // Unlock game controls if the game is over
-    if (!gameActive) {
-        toggleGameControls(false);
-    }
-}
-
-// Force the board to accurately reflect the game state
-function onSnapEnd () {
-    board.position(game.fen());
-}
-
-// Update the move history display with every move  
-function updateMoveHistory() {
-    // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
-    let history = game.history();
-    
-    // Create an HTML body for storing move history
-    let html = '';
-
-    // Iterate through moves in pairs (1. white, 2. black)
-    for (let i = 0; i < history.length; i += 2) {
-        let moveNumber = (i / 2) + 1;
-
-        // White move is the first in the pair
-        let whiteIndex = i + 1;
-        let whiteMove = '<span class="move-link" data-index="' + whiteIndex + '">' + history[i] + '</span>';
-
-        // Black move is the second in the pair
-        var blackMove;
-        if (history[i + 1]) {
-            let blackIndex = i + 2;
-            blackMove = '<span class="move-link" data-index="' + blackIndex + '">' + history[i + 1] + '</span>';
-        // Handle pending black move
-        } else {
-            blackMove = '';
-        }
-
-        html += '<tr>';
-        html += '<td>' + moveNumber + '.</td>';
-        html += '<td>' + whiteMove + '</td>';
-        html += '<td>' + blackMove + '</td>';
-        html += '</tr>';
-    }
-
-    // Update the HTML element with the generated table data
-    let moveHistoryBodyElement = document.getElementById('moveHistoryBody');
-    moveHistoryBodyElement.innerHTML = html;
-    
-    // Auto-scroll the move history to the latest move
-    let pgnElement = document.getElementById('pgn');
-    pgnElement.scrollTop = pgnElement.scrollHeight;
-}
-
-// Save the current board position to the FEN history
-function fenSnapshot() {
-    // Save board state
-    fenHistory.push(game.fen());
-    viewingIndex = fenHistory.length - 1;
-    // Save evaluation state
-    evalHistory.push(currentEval);
-}
-
-// Highlight the King when in check
-function highlightKingCheck(color) {
-    // Establish the target piece (wK or bK)
-    let kingColor = color || game.turn();
-    let kingNotation = kingColor + 'K';
-    let kingSquare = null;
-
-    // Get the board state
-    let boardSquares = board.position();
-
-    // Locate the target piece
-    for (let square in boardSquares) {
-        if (boardSquares[square] === kingNotation) {
-            kingSquare = square;
-            // King located - stop searching
-            break;
-        }
-    }
-
-    // Apply the class
-    removeCurrentMoveHighlights();
-    $('#myBoard .square-' + kingSquare).addClass('in-check');
-
-    // Apply a wiggle animation
-    wiggleAnimation(kingSquare, 250);
-}
 
 // Start a batch analysis of the completed game's move history
 function analyzeGame() {
@@ -1109,34 +1239,139 @@ function applyMoveVisibility() {
     });
 }
 
-// ==========  Board setup  ==========
-// Create configurations for the chessboard before it is created
-const config = {
-    draggable: true,
-    position: 'start',
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd
-};
+// Determine the quality of the move played based on evaluation score
+function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
+    let judgement = {};
 
-// Initialize the chessboard (div with id 'myBoard') 
-const board = Chessboard('myBoard', config);
+    // == The best move was played ==
+    if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
+        judgement = { text: 'best', class: 'judgement-best' };
+        return judgement;
+    }
 
- // Update the board status on game start
-updateStatus();
+    // == Blunder check == 
+    // Define thresholds for Mate and "lost" position (7.5 pawns)
+    let mateThreshold = 5000;
+    let lostThreshold = 750;
+
+    // Check for current and previous mate
+    let isMateAgainstWhite = (currentEvaluation <= -mateThreshold);
+    let isMateAgainstBlack = (currentEvaluation >= mateThreshold);
+    let wasMateAgainstWhite = (previousEvaluation <= -mateThreshold);
+    let wasMateAgainstBlack = (previousEvaluation >= mateThreshold);
+
+    // Check if previously in lost position
+    let whiteWasLost = (previousEvaluation < -lostThreshold);
+    let blackWasLost = (previousEvaluation > lostThreshold);
+
+    // Determine whether the position was blundered
+    let positionBlundered = false;
+    if (turnColor === 'w') {
+        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
+        if (isMateAgainstWhite && !wasMateAgainstWhite && !whiteWasLost) {
+            positionBlundered = true;
+        }
+    } else {
+        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
+        if (isMateAgainstBlack && !wasMateAgainstBlack && !blackWasLost) {
+            positionBlundered = true;
+        }
+    }
+
+    // The position was blundered, no need to further analyze move quality
+    if (positionBlundered) {
+        judgement = { text: 'blunder', class: 'judgement-blunder' };
+        return judgement;
+    }
+
+    // == Standard move judgement ==
+    // Compare winning chance before and after the move (min 0, max 100)
+    let previousWinningChance = calculateEvaluation(previousEvaluation);
+    let currentWinningChance = calculateEvaluation(currentEvaluation);
+
+    /*
+    Calculate the loss of advantage as the difference between evaluation score
+    The engine always calculates evaluation score from White's perspective
+        Increase of score - favorable for White
+        Decrease of score - favorable for Black
+    */
+    let lostAdvantage = 0;
+    if (turnColor === 'w') {
+        // White loses chances if the score gets smaller
+        lostAdvantage = previousWinningChance - currentWinningChance;
+    } else {
+        // Black loses chances if the score gets bigger
+        lostAdvantage = currentWinningChance - previousWinningChance;
+    }
+
+    // Categorize the loss of advantage to determine move judgement
+    if (lostAdvantage <= 2) {
+        judgement = { text: 'excellent', class: 'judgement-excellent' };
+    } else if (lostAdvantage <= 5) {
+        judgement = { text: 'good', class: 'judgement-good' };
+    } else if (lostAdvantage <= 10) {
+        judgement = { text: 'inaccuracy', class: 'judgement-inaccuracy' };
+    } else if (lostAdvantage <= 20) {
+        judgement = { text: 'mistake', class: 'judgement-mistake' };
+    } else {
+        judgement = { text: 'blunder', class: 'judgement-blunder' };
+    }
+    
+    return judgement;
+}
 
 // =============================
-// ==  UI controls  ============
+// ==  User interface  ============
 // =============================
 
-// ==========  Difficulty selection  ==========
-const catPrevious = document.getElementById('catPrevious');
+// ==========  DOM elements  ==========
+
+const catPreviousBtn = document.getElementById('catPrevious');
 const categoryDisplay = document.getElementById('categoryDisplay');
-const catNext = document.getElementById('catNext');
+const catNextBtn = document.getElementById('catNext');
 const eloSlider = document.getElementById('eloSlider');
 const eloDisplay = document.getElementById('eloDisplay');
+const startNewGameBtn = document.getElementById('startBtn');
+const colorRadios = document.querySelectorAll('input[name="color"]');
+const gameOverModal = document.getElementById("gameOverModal");
+const gameOverModalText = document.getElementById("gameResult");
+const gameOverModalReason = document.getElementById("gameReason");
+const exitToMenuBtn = document.getElementById("gameOverModalCloseBtn");
+const rematchBtn = document.getElementById("rematchBtn");
+const reviewGameBtn = document.getElementById("gameReviewBtn");
+const optionsModal = document.getElementById('optionsModal');
+const openOptionsBtn = document.getElementById('optionsBtn');
+const closeOptionsBtn = document.getElementById('optionsModalCloseBtn');
+const toggleHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+const clickMovingPreferenceRadioBtn = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+const dragMovingPreferenceRadioBtn = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+const bothMovingPreferenceRadioBtn = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+const yesNoModal = document.getElementById('yesNoModal');
+const yesBtn = document.getElementById('yesBtn');
+const noBtn = document.getElementById('noBtn');
+const yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
+const backBtn = document.getElementById('backBtn');
+const forwardBtn = document.getElementById('forwardBtn');
+const firstBtn = document.getElementById('firstBtn');
+const lastBtn = document.getElementById('lastBtn');
+const evalContainer = document.getElementById('evalContainer');
+const toggleEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+const blackBtn = document.querySelector('input[name="color"][value="black"]'); 
+const whiteBtn = document.querySelector('input[name="color"][value="white"]');
+const undoBtn = document.getElementById('undoBtn');
+const hintBtn = document.getElementById('hintBtn');
+const resignBtn = document.getElementById('resignBtn');
 
-// == Helper methods ==
+// ==========  Starting settings  ==========
+
+// Not usable until game start
+openOptionsBtn.disabled = true;
+undoBtn.disabled = true;
+hintBtn.disabled = true;
+resignBtn.disabled = true;
+
+// ==========  Difficulty selection  ==========
+
 // Update the difficulty category
 function updateDifficultyCategory() {
     // Get the current category
@@ -1156,14 +1391,14 @@ function updateDifficultyCategory() {
 
     // Enable/disable the previous/next buttons as appropriate
     if (currentCategoryIndex === 0) {
-        catPrevious.disabled = true;
+        catPreviousBtn.disabled = true;
     } else {
-        catPrevious.disabled = false;
+        catPreviousBtn.disabled = false;
     }
     if (currentCategoryIndex === difficultyCategories.length - 1) {
-        catNext.disabled = true;
+        catNextBtn.disabled = true;
     } else {
-        catNext.disabled = false;
+        catNextBtn.disabled = false;
     }
 }
 
@@ -1184,7 +1419,6 @@ function updateEngineSettings(elo) {
     randomizationFactor = profile.random;
 }
 
-// == Event handlers ==
 // Previous category button
 function previousCategory() {
     if (currentCategoryIndex > 0) {
@@ -1193,7 +1427,6 @@ function previousCategory() {
         playSound('select');
     }
 }
-catPrevious.addEventListener('click', previousCategory);
 
 // Next category button
 function nextCategory() {
@@ -1203,7 +1436,6 @@ function nextCategory() {
         playSound('select');
     }
 }
-catNext.addEventListener('click', nextCategory);
 
 // Elo slider change
 function eloSliderChange() {
@@ -1212,104 +1444,175 @@ function eloSliderChange() {
     updateEngineSettings(newElo);
     playSound('select');
 }
-eloSlider.addEventListener('input', eloSliderChange);
 
-// == UI initialization ==
+// ==========  UI initialization  ==========
+
 updateDifficultyCategory();
 updateEngineSettings(currentElo);
 
-// ==========  Color selection  ==========
-const colorRadios = document.querySelectorAll('input[name="color"]');
-colorRadios.forEach(function(radio) {
-    radio.addEventListener('change', function() {
-        playSound('select');
-    });
-});
+// ==========  Updates  ==========
 
-// ==========  Start new game  ==========
-// Reset the game to the starting position
-function startNewGame() {
-    // Disallow accidental new game start-up
-    if (gameActive) {
-        return;
+// Update the evaluation score bar
+function updateEvalBar(centipawns) {
+    let evalBar = document.getElementById('evalBar');
+    let evalScore = document.getElementById('evalScore');
+    let mateIncoming = Math.abs(centipawns) > 15000
+    let barHeight = calculateEvaluation(centipawns);
+
+    // Keep the bar within a fixed range for visual clarity
+    if (barHeight > 95) {
+        barHeight = 95;
+        if (mateIncoming) barHeight = 100;
+    }
+    if (barHeight < 5) {
+        barHeight = 5;
+        if (mateIncoming) barHeight = 0;        
     }
 
-    // Reset game review state
-    reviewingGame = false;
-    document.getElementById('moveHistoryAnalysisContainer').style.display = 'none';
-    moveJudgements = [];
-    moveFilters = {
-        'best': true,
-        'excellent': true,
-        'good': true,
-        'inaccuracy': true,
-        'mistake': true,
-        'blunder': true
-    };
-    $('#analysisSummary').empty();
-
-    // Reset visuals
-    closeGameOverModal();
-    removeAllHighlights();
-
-    // Clear queued move and reset game logic
-    window.clearTimeout(botEngineTimeout);
-    game.reset();
-
-    // Initialize list of FEN position & evaluation score history
-    fenHistory = [game.fen()];
-    viewingIndex = 0;
-    evalHistory = [0];
-    currentEval = 0;
-    updateEvalBar(currentEval);
-
-    // Reveal the move history panel and control buttons
-    document.getElementById('optionsBtn').style.display = '';
-    document.getElementById('undoBtn').style.display = '';
-    document.getElementById('hintBtn').style.display = '';
-    document.getElementById('resignBtn').style.display = '';
-
-    // Disable mid-game control changes
-    gameActive = true;
-    toggleGameControls(true);
-
-    // Set the board orientation based on player color
-    playerColor = document.querySelector('input[name="color"]:checked').value;
-    board.orientation(playerColor);
-
-    // Replace CSS class for interactivity with only the players color pieces
-    let boardElement = document.getElementById('myBoard');
-    boardElement.classList.remove('board-white', 'board-black');
-    boardElement.classList.add('board-' + playerColor);
-
-    // Reset the board 
-    board.start();
-    updateStatus();
-    botEngine.postMessage('ucinewgame');
-
-    // Play the start game sound
-    playSound('start');
-
-    // Focus the center of the board
-    document.getElementById('gameContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Engine moves first if playing as black
+    // Orientation (BAR) - flip if playing as Black
     if (playerColor === 'black') {
-        window.setTimeout(makeEngineMove, 250);
+        evalBar.style.top = '0';
+        evalBar.style.bottom = 'auto';
+    } else {
+        evalBar.style.top = 'auto';
+        evalBar.style.bottom = '0';
+    }
+
+    // Set the html bar height according to the new value
+    evalBar.style.height = barHeight + '%';
+
+    // Give meaning to the centipawn advantage
+    let evalScoreText = '';
+    if (mateIncoming) {
+        let movesToMate = 20000 - Math.abs(centipawns);
+        if (movesToMate === 0) {
+            evalScoreText = 'M';
+        } else {
+            evalScoreText = 'M' + movesToMate;
+        }
+    } else {
+        let pawnAdvantage = Math.abs(centipawns) / 100;
+        // Formatted to one decimal place
+        evalScoreText = pawnAdvantage.toFixed(1);
+    }
+
+    // Reset eval bar labels
+    evalScore.classList.remove('eval-score-white', 'eval-score-black');
+    evalScore.innerText = evalScoreText;
+
+    if (centipawns >= 0) {
+        // White is winning
+        evalScore.classList.add('eval-score-white');
+
+        // Orientation (TEXT) - flip if playing as Black
+        if (playerColor === 'black') {
+            evalScore.style.top = '5px';
+            evalScore.style.bottom = 'auto';
+        } else {
+            evalScore.style.bottom = '5px';
+            evalScore.style.top = 'auto';
+        }
+
+    } else {
+        // Black is winning
+        evalScore.classList.add('eval-score-black');
+
+        // Orientation (TEXT - flip if playing as Black
+        if (playerColor === 'black') {
+            evalScore.style.bottom = '5px';
+            evalScore.style.top = 'auto';
+        } else {
+            evalScore.style.top = '5px';
+            evalScore.style.bottom = 'auto';
+        }
     }
 }
-// Bind the reset function to the reset button
-const resetButton = document.getElementById('startBtn');
-resetButton.addEventListener('click', startNewGame);
+
+// Update the move history display with every move  
+function updateMoveHistory() {
+    // Get the history as an array: ['d4', 'd5', 'c4', 'b5']
+    let history = game.history();
+    
+    // Create an HTML body for storing move history
+    let html = '';
+
+    // Iterate through moves in pairs (1. white, 2. black)
+    for (let i = 0; i < history.length; i += 2) {
+        let moveNumber = (i / 2) + 1;
+
+        // White move is the first in the pair
+        let whiteIndex = i + 1;
+        let whiteMove = '<span class="move-link" data-index="' + whiteIndex + '">' + history[i] + '</span>';
+
+        // Black move is the second in the pair
+        var blackMove;
+        if (history[i + 1]) {
+            let blackIndex = i + 2;
+            blackMove = '<span class="move-link" data-index="' + blackIndex + '">' + history[i + 1] + '</span>';
+        // Handle pending black move
+        } else {
+            blackMove = '';
+        }
+
+        html += '<tr>';
+        html += '<td>' + moveNumber + '.</td>';
+        html += '<td>' + whiteMove + '</td>';
+        html += '<td>' + blackMove + '</td>';
+        html += '</tr>';
+    }
+
+    // Update the HTML element with the generated table data
+    let moveHistoryBodyElement = document.getElementById('moveHistoryBody');
+    moveHistoryBodyElement.innerHTML = html;
+    
+    // Auto-scroll the move history to the latest move
+    let pgnElement = document.getElementById('pgn');
+    pgnElement.scrollTop = pgnElement.scrollHeight;
+}
+
+
+
+// ==========  Control toggling  ==========
+
+// Toggle on/off game controls based on game state (true = cannot be changed mid-game)
+function toggleGameControls(gameInProgress) {
+    // Difficulty select dropdown
+    document.getElementById('catPrevious').disabled = gameInProgress;
+    document.getElementById('catNext').disabled = gameInProgress;
+    document.getElementById('eloSlider').disabled = gameInProgress;
+    // Color radio buttons
+    let colorRadios = document.querySelectorAll('input[name="color"]');
+    colorRadios.forEach(function(radio) {
+        radio.disabled = gameInProgress;
+    });
+    // Start new game button
+    document.getElementById('startBtn').disabled = gameInProgress;
+
+    // In-game options
+    // Options button
+    document.getElementById('optionsBtn').disabled = !gameInProgress;
+    // Undo button
+    document.getElementById('undoBtn').disabled = !gameInProgress;
+    // Navigation buttons
+    toggleNavigation();
+    // Hint button
+    document.getElementById('hintBtn').disabled = !gameInProgress;
+    // Resign button
+    document.getElementById('resignBtn').disabled = !gameInProgress;
+}
+
+// Show/hide the evaluation bar 
+function toggleEvalBar() {
+    evalBarEnabled = !evalBarEnabled;
+    if (evalBarEnabled) {
+        evalContainer.style.display = "";
+    } else {
+        evalContainer.style.display = "none";
+    }
+    playSound('select');
+}
 
 // ==========  Game over modal  ==========
-// Modal Elements
-const gameOverModal = document.getElementById("gameOverModal");
-const gameOverModalText = document.getElementById("gameResult");
-const gameOverModalReason = document.getElementById("gameReason");
-const gameOverModalCloseBtn = document.getElementById("gameOverModalCloseBtn");
-const rematchBtn = document.getElementById("rematchBtn");
-const gameReviewBtn = document.getElementById("gameReviewBtn");
 
 // Show the game over modal with the result and reason 
 function openGameOverModal(result, reason) {
@@ -1325,46 +1628,12 @@ function openGameOverModal(result, reason) {
     gameOverModal.style.display = "flex";
 }
 
-// Bind the start new gamefunction to the Rematch button
-rematchBtn.addEventListener('click', startNewGame);
-
 // Close the Game Over modal
 function closeGameOverModal() {
     playSound('select');
     gameOverModal.style.display = "none";
 }
 
-// Close the Game Over modal and return to the main menu
-function exitToMenu() {
-    // Close the modal
-    closeGameOverModal();
-
-    // Stop pending actions and reset flags
-    window.clearTimeout(botEngineTimeout);
-    gameActive = false;
-    reviewingGame = false;
-
-    // Reset visuals and game logic
-    removeAllHighlights();
-    game.reset();
-    board.start();
-
-    // Reset move history
-    fenHistory = [game.fen()];
-    viewingIndex = 0;
-    evalHistory = [0];
-    currentEval = 0;
-    updateEvalBar(0);
-
-    // Reset controls and refocus
-    toggleGameControls(false);
-    updateStatus();
-    document.getElementById('titleContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    console.log('Returned to main menu.');
-}
-
-// Bind the exit to menu function to the close button
-gameOverModalCloseBtn.addEventListener('click', exitToMenu);
 
 // Determine whether the game over modal is open
 function gameOverModalStatus() {
@@ -1375,102 +1644,29 @@ function gameOverModalStatus() {
     return status;
 }
 
-// Review the previous game
-function reviewGame() {
-    reviewingGame = true;
-
-    // Play loading sound
-    playSound('loading');
-
-    // == Reset board visuals == 
-    closeGameOverModal();
-    navigateFirst();
-    removeCurrentMoveHighlights();
-
-    // == Reset game review visuals ==
-    // Move type counts
-    $('.move-dot').remove();
-    analysisCounts = { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 };
-    // Move judgements and accuracy
-    moveJudgements = [];
-    accuracyList = [];
-    currentGameAccuracy = 0;
-    // Analysis loading bar
-    document.getElementById('analysisLoader').style.display = 'flex';
-    document.getElementById('analysisResult').style.display = 'none';
-    document.getElementById('analysisPercent').innerText = '0';
-    document.getElementById('analysisProgressBar').style.width = '0%';
-
-    // == Hide controls ==
-    optionsModalBtn.style.display = 'none';
-    undoBtn.style.display = 'none';
-    hintBtn.style.display = 'none';
-    resignBtn.style.display = 'none';
-
-    // == Display move history ==
-    document.getElementById('moveHistoryAnalysisContainer').style.display = 'flex';
-
-    // == Dim opponent moves ==
-    $('.move-link').each(function() {
-        let index = parseInt($(this).attr('data-index'));
-
-        // Determine whose move it is (data-index is 1-based)
-        let isWhiteMove = (index % 2 !== 0);
-        let isPlayerMove = (isWhiteMove && playerColor === 'white') || (!isWhiteMove && playerColor === 'black');
-
-        // Dim moves
-        if (!isPlayerMove) {
-            $(this).addClass('move-dimmed');
-        }
-    });
-
-
-    // == Trigger batch move analysis ==
-    analyzeGame();
-}
-// Bind the review game function to the game review button
-gameReviewBtn.addEventListener('click', reviewGame);
-
 // ==========  In-game options modal  ==========
-const optionsModal = document.getElementById('optionsModal');
-const optionsModalBtn = document.getElementById('optionsBtn');
-const optionsModalCloseBtn = document.getElementById('optionsModalCloseBtn');
-const optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
-const clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
-const dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
-const bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
-
-// Not usable until game start
-optionsModalBtn.disabled = true;
 
 // Open the options modal
 function openOptionsModal() {
     // Prevent opening options before a game starts
-    if (!gameActive) {
-        return;
-    }
-
+    if (!gameActive) return;
+    
     playSound('modal');
     optionsModal.style.display = 'flex';
 }
-// Bind the open options modal function to the options button
-optionsModalBtn.addEventListener('click', openOptionsModal);
 
 // Close the options modal
 function closeOptionsModal() {
     optionsModal.style.display = 'none';
     playSound('select');
 }
-// Bind the close function to the close button
-optionsModalCloseBtn.addEventListener('click', closeOptionsModal);
+
 
 // Close the options module when clicking outside of it
 function optionsModuleOutsideClick(event) {
-    if (event.target === optionsModal) {
-        closeOptionsModal();
-    }
+    if (event.target === optionsModal) closeOptionsModal();
 }
-window.addEventListener('click', optionsModuleOutsideClick);
+
 
 // Determine whether the options modal is open
 function optionsModalStatus() {
@@ -1481,8 +1677,7 @@ function optionsModalStatus() {
     return status;
 }
 
-// Bind the move-highlighting toggle function to the highlights checkbox
-optionsModalHighlightsCheckbox.addEventListener('click', toggleHighlights)
+
 
 // Set clicking and dragging abilities according to user preferences
 function setMovingPreference(enableClicking, enableDragging) {
@@ -1498,16 +1693,9 @@ function setMovingPreference(enableClicking, enableDragging) {
     // Play selection sound
     playSound('select');
 }
-// Bind the moving preference function to the moveving preference radiobuttons
-clickMovingPreference.addEventListener('change', function() { setMovingPreference(true, false); });
-dragMovingPreference.addEventListener('change', function() { setMovingPreference(false, true); });
-bothMovingPreference.addEventListener('change', function() { setMovingPreference(true, true); });
 
-// ==========  Confirm choice (yes/no) modal  ==========
-const yesNoModal = document.getElementById('yesNoModal');
-const yesBtn = document.getElementById('yesBtn');
-const noBtn = document.getElementById('noBtn');
-const yesNoCloseBtn = document.getElementById('yesNoCloseBtn');
+
+// ==========  Confirm resignation (yes/no) modal  ==========
 
 // Open yesNoModal
 function openYesNoModal() {
@@ -1543,28 +1731,18 @@ function confirmResignation() {
 
     // Update the move status and show the game over modal
     let moveColor = 'White';
-    if (game.turn() === 'b') {
-        moveColor = 'Black';
-    }
+    if (game.turn() === 'b') moveColor = 'Black';
     $('#status').html('Game over. ' + moveColor + ' has resigned.');
     openGameOverModal('Loss', 'Resignation');
 }
-// Bind the resignation confirmation button to the Yes button
-yesBtn.addEventListener('click', confirmResignation);
 
 // Cancel resignation and return the user to the options meodal
 function cancelResignation() {
     closeYesNoModal();
 }
-// Bind the resignation cancellation function to the cancel buttons
-noBtn.addEventListener('click', cancelResignation);
-yesNoCloseBtn.addEventListener('click', cancelResignation);
 
 // ==========  Back / forward navigation  ==========
-const backBtn = document.getElementById('backBtn');
-const forwardBtn = document.getElementById('forwardBtn');
-const firstBtn = document.getElementById('firstBtn');
-const lastBtn = document.getElementById('lastBtn');
+
 backBtn.disabled = true;
 forwardBtn.disabled = true;
 firstBtn.disabled = true;
@@ -1577,8 +1755,6 @@ function navigateBack() {
         navigationUpdate();
     }   
 }
-// Bind the back function to the back button
-backBtn.addEventListener('click', navigateBack);
 
 // Navigate forward to the next position
 function navigateForward() {
@@ -1587,24 +1763,18 @@ function navigateForward() {
         navigationUpdate();
     }   
 }
-// Bind the forward function to the forward button
-forwardBtn.addEventListener('click', navigateForward);
 
 // Navigate back to the first move
 function navigateFirst() {
     viewingIndex = 0;
     navigationUpdate();        
 }
-// Bind the first function to the first button
-firstBtn.addEventListener('click', navigateFirst);
 
 // Navigate back to the last move
 function navigateLast() {
     viewingIndex = fenHistory.length - 1;
     navigationUpdate();
 }
-// Bind the last function to the last button
-lastBtn.addEventListener('click', navigateLast);
 
 // Enable / disable move viewing navigation
 function toggleNavigation() {
@@ -1736,197 +1906,9 @@ function navigationUpdate() {
     toggleNavigation();
 }
 
-// ==========  Undo move  ==========
-let undoBtn = document.getElementById('undoBtn');
-
-// Not usable until game start
-undoBtn.disabled = true;
-
-// Undo the previous move
-function undoMove() {
-    // 1. Game must be in progress
-    if (!gameActive) {
-        return;
-    }
-    // 2. One move must have beeen completed by BOTH sides before the player may undo a move
-    if (game.history().length < 2) {
-        return;
-    }
-    // 3. It must be the players turn
-    if (game.turn() !== playerColor.charAt(0)) {
-        return;
-    }
-
-    // Undo the players previous move and the engines response
-    game.undo();
-    game.undo();
-
-    // Remove the previous moves from the move history
-    fenHistory.pop();
-    fenHistory.pop();
-    evalHistory.pop();
-    evalHistory.pop();
-
-    // Reset the evaluation score the the last valid value
-    if (evalHistory.length > 0) {
-        currentEval = evalHistory[evalHistory.length - 1];
-    } else {
-        currentEval = 0;
-    }
-
-    // Update the visual board
-    viewingIndex = fenHistory.length - 1;
-    board.position(game.fen());
-
-    // Reset visual helpers and trigger audio 
-    updateStatus();
-    removeCurrentMoveHighlights();
-    selectedSquare = null;
-    updateHistoryHighlights();
-    updateEvalBar(currentEval);
-    playHistoricalMoveSound();
-}
-undoBtn.addEventListener('click', undoMove);
-
-// ==========  Hint (best move)  ==========
-let hintBtn = document.getElementById('hintBtn');
-hintBtn.disabled = true;
-
-// Highlight the best move when a hint is requested
-function highlightHint(source, target) {
-    // Clear previous hints
-    $('#myBoard .square-55d63').removeClass('highlight-hint');
-
-    // Highlight the start and end squares of the hinted move
-    $('#myBoard .square-' + source).addClass('highlight-hint');
-    $('#myBoard .square-' + target).addClass('highlight-hint');
-}
-
-// Trigger a hint request
-function getHint() {
-    // State checks
-    if (!gameActive) return;
-    if (game.turn() !== playerColor.charAt(0)) return;
-    if (viewingIndex !== fenHistory.length - 1) return;
-
-    // Prevent residual highlights in else fallback of hintEngine.onmessage when starting a new game mid move-analysis
-    gettingHint = true;
-
-    // Request the best move from the hint engine
-    hintEngine.postMessage('position fen ' + game.fen());
-    hintEngine.postMessage('go depth ' + hintSearchDepth);
-
-    playSound('hint');
-}
-// Bind the get hint function to the hint button
-hintBtn.addEventListener('click', getHint);
-
-// ==========  Resign game  ==========
-let resignBtn = document.getElementById('resignBtn');
-resignBtn.disabled = true;
-
-// Resign the game for a loss
-function resignGame() {
-    openYesNoModal();
-
-}
-// Bind the resign function to the resign button
-resignBtn.addEventListener('click', resignGame);
-
 // =============================
-// ==  Evaluation bar  =========
+// ==  Helpers  ================
 // =============================
-const evalContainer = document.getElementById('evalContainer');
-const optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
-
-// Show/hide the evaluation bar 
-function toggleEvalBar() {
-    evalBarEnabled = !evalBarEnabled;
-    if (evalBarEnabled) {
-        evalContainer.style.display = "";
-    } else {
-        evalContainer.style.display = "none";
-    }
-    playSound('select');
-}
-// Bind the eval toggle function to the eval toggle button
-optionsModalEvalBarCheckbox.addEventListener('change', toggleEvalBar);
-
-// Update evaluation bar
-function updateEvalBar(centipawns) {
-    let evalBar = document.getElementById('evalBar');
-    let evalScore = document.getElementById('evalScore');
-    let mateIncoming = Math.abs(centipawns) > 15000
-    let barHeight = calculateEvaluation(centipawns);
-
-    // Keep the bar within a fixed range for visual clarity
-    if (barHeight > 95) {
-        barHeight = 95;
-        if (mateIncoming) barHeight = 100;
-    }
-    if (barHeight < 5) {
-        barHeight = 5;
-        if (mateIncoming) barHeight = 0;        
-    }
-
-    // Orientation (BAR) - flip if playing as Black
-    if (playerColor === 'black') {
-        evalBar.style.top = '0';
-        evalBar.style.bottom = 'auto';
-    } else {
-        evalBar.style.top = 'auto';
-        evalBar.style.bottom = '0';
-    }
-
-    // Set the html bar height according to the new value
-    evalBar.style.height = barHeight + '%';
-
-    // Give meaning to the centipawn advantage
-    evalScoreText = '';
-    if (mateIncoming) {
-        let movesToMate = 20000 - Math.abs(centipawns);
-        if (movesToMate === 0) {
-            evalScoreText = 'M';
-        } else {
-            evalScoreText = 'M' + movesToMate;
-        }
-    } else {
-        let pawnAdvantage = Math.abs(centipawns) / 100;
-        // Formatted to one decimal place
-        evalScoreText = pawnAdvantage.toFixed(1);
-    }
-
-    // Reset eval bar labels
-    evalScore.classList.remove('eval-score-white', 'eval-score-black');
-    evalScore.innerText = evalScoreText;
-
-    if (centipawns >= 0) {
-        // White is winning
-        evalScore.classList.add('eval-score-white');
-
-        // Orientation (TEXT) - flip if playing as Black
-        if (playerColor === 'black') {
-            evalScore.style.top = '5px';
-            evalScore.style.bottom = 'auto';
-        } else {
-            evalScore.style.bottom = '5px';
-            evalScore.style.top = 'auto';
-        }
-
-    } else {
-        // Black is winning
-        evalScore.classList.add('eval-score-black');
-
-        // Orientation (TEXT - flip if playing as Black
-        if (playerColor === 'black') {
-            evalScore.style.bottom = '5px';
-            evalScore.style.top = 'auto';
-        } else {
-            evalScore.style.top = '5px';
-            evalScore.style.bottom = 'auto';
-        }
-    }
-}
 
 /* 
 Calculate the game evaluation (who is winning)
@@ -1943,9 +1925,36 @@ function calculateEvaluation(centipawnAdvantage) {
     return winChance * 100;
 }   
 
-// =============================
-// ==  Sounds  =================
-// =============================
+// Retrieve the details of the previously played move
+function getPreviousMove() {
+    let history = game.history({verbose: true});
+    let moveIndex = viewingIndex - 1;
+    let move = history[moveIndex];
+    return move;
+}
+
+// Wiggle animation on piece hover/drop
+function wiggleAnimation(target, delay) {
+    // If no delay explicitly provided, wait 50ms for the board to finish snapping/redrawing
+    let waitTime = delay || 50;
+
+    window.setTimeout(function() {
+        // Find the square and piece image
+        let $targetSquare = $('#myBoard .square-' + target);
+        let $targetImage = $targetSquare.find('img');
+
+        // Ensure the element exists (has loaded)
+        if ($targetImage.length > 0) {
+            // Apply the wiggle animation class
+            $targetImage.addClass('drop-wiggle');
+            
+            // Remove the class after the animation ends (allows for wiggling on next interaction)
+            window.setTimeout(function() {
+                $targetImage.removeClass('drop-wiggle');
+            }, 400);
+        }
+    }, waitTime);   
+}
 
 // Helper to play sounds safely
 function playSound(name) {
@@ -1991,12 +2000,13 @@ function playMoveSound(moveResult) {
     playSound('move');
 }
 
-// Retrieve the details of the previously played move
-function getPreviousMove() {
-    let history = game.history({verbose: true});
-    let moveIndex = viewingIndex - 1;
-    let move = history[moveIndex];
-    return move;
+// Play a sound when hovering over a piece of the players color
+function playHoverSound() {
+    // Retrieve the piece data
+    let piece = $(this).attr('data-piece');
+    
+    // Play the audio if the piece belongs to the player
+    if (piece.charAt(0) === playerColor.charAt(0)) playSound('hover');
 }
 
 // Play sounds during move navigation, based on historical move data
@@ -2032,121 +2042,74 @@ function playHistoricalMoveSound() {
 }
 
 // =============================
-// ==  Move history  ===========
+// ==  Events  =================
 // =============================
 
-// Navigate to a move by move-history click
-function moveHistoryNavigation() {
-    // Get the index of the clicked move
-    let index = $(this).attr('data-index');
+// ==========  UI element bindings  ==========
 
-    // Navigate to the viewing index of the move
-    viewingIndex = parseInt(index);
-    navigationUpdate();
-}
-// Bind the move history navigation function to move history clicking
+// Main menu
+catPreviousBtn.addEventListener('click', previousCategory);
+catNextBtn.addEventListener('click', nextCategory);
+eloSlider.addEventListener('input', eloSliderChange);
+colorRadios.forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        playSound('select');
+    });
+});
+startNewGameBtn.addEventListener('click', startNewGame);
+
+// Board gameplay
+$('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
+$('#myBoard').on('click', '.square-55d63', onSquareClick);
+
+// Board controls
+backBtn.addEventListener('click', navigateBack);
+forwardBtn.addEventListener('click', navigateForward);
+firstBtn.addEventListener('click', navigateFirst);
+lastBtn.addEventListener('click', navigateLast);
+undoBtn.addEventListener('click', undoMove);
+hintBtn.addEventListener('click', getHint);
+
+// In-game options modal
+openOptionsBtn.addEventListener('click', openOptionsModal);
+closeOptionsBtn.addEventListener('click', closeOptionsModal);
+toggleHighlightsCheckbox.addEventListener('click', toggleLegalMoveHighlights);
+toggleEvalBarCheckbox.addEventListener('change', toggleEvalBar);
+clickMovingPreferenceRadioBtn.addEventListener('change', function() { setMovingPreference(true, false); });
+dragMovingPreferenceRadioBtn.addEventListener('change', function() { setMovingPreference(false, true); });
+bothMovingPreferenceRadioBtn.addEventListener('change', function() { setMovingPreference(true, true); });
+resignBtn.addEventListener('click', resignGame);
+window.addEventListener('click', optionsModuleOutsideClick);
+
+// Game-over modal
+exitToMenuBtn.addEventListener('click', exitToMenu);
+rematchBtn.addEventListener('click', startNewGame);
+reviewGameBtn.addEventListener('click', reviewGame);
+
+// Confirm resignation modal
+yesNoCloseBtn.addEventListener('click', cancelResignation);
+yesBtn.addEventListener('click', confirmResignation);
+noBtn.addEventListener('click', cancelResignation);
+
+// Move history
 $('#moveHistoryBody').on('click', '.move-link', moveHistoryNavigation);
 
-// Determine the quality of the move played based on evaluation score
-function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
-    let judgement = {};
-
-    // == The best move was played ==
-    if (movePlayed.from === bestMove.from && movePlayed.to === bestMove.to) {
-        judgement = { text: 'best', class: 'judgement-best' };
-        return judgement;
-    }
-
-    // == Blunder check == 
-    // Define thresholds for Mate and "lost" position (7.5 pawns)
-    let mateThreshold = 5000;
-    let lostThreshold = 750;
-
-    // Check for current and previous mate
-    let isMateAgainstWhite = (currentEvaluation <= -mateThreshold);
-    let isMateAgainstBlack = (currentEvaluation >= mateThreshold);
-    let wasMateAgainstWhite = (previousEvaluation <= -mateThreshold);
-    let wasMateAgainstBlack = (previousEvaluation >= mateThreshold);
-
-    // Check if previously in lost position
-    let whiteWasLost = (previousEvaluation < -lostThreshold);
-    let blackWasLost = (previousEvaluation > lostThreshold);
-
-    // Determine whether the position was blundered
-    let positionBlundered = false;
-    if (turnColor === 'w') {
-        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
-        if (isMateAgainstWhite && !wasMateAgainstWhite && !whiteWasLost) {
-            positionBlundered = true;
-        }
-    } else {
-        // 1. Wasn't previously in mate,    2. Wasn't previously in "lost" position
-        if (isMateAgainstBlack && !wasMateAgainstBlack && !blackWasLost) {
-            positionBlundered = true;
-        }
-    }
-
-    // The position was blundered, no need to further analyze move quality
-    if (positionBlundered) {
-        judgement = { text: 'blunder', class: 'judgement-blunder' };
-        return judgement;
-    }
-
-    // == Standard move judgement ==
-    // Compare winning chance before and after the move (min 0, max 100)
-    let previousWinningChance = calculateEvaluation(previousEvaluation);
-    let currentWinningChance = calculateEvaluation(currentEvaluation);
-
-    /*
-    Calculate the loss of advantage as the difference between evaluation score
-    The engine always calculates evaluation score from White's perspective
-        Increase of score - favorable for White
-        Decrease of score - favorable for Black
-    */
-    let lostAdvantage = 0;
-    if (turnColor === 'w') {
-        // White loses chances if the score gets smaller
-        lostAdvantage = previousWinningChance - currentWinningChance;
-    } else {
-        // Black loses chances if the score gets bigger
-        lostAdvantage = currentWinningChance - previousWinningChance;
-    }
-
-    // Categorize the loss of advantage to determine move judgement
-    if (lostAdvantage <= 2) {
-        judgement = { text: 'excellent', class: 'judgement-excellent' };
-    } else if (lostAdvantage <= 5) {
-        judgement = { text: 'good', class: 'judgement-good' };
-    } else if (lostAdvantage <= 10) {
-        judgement = { text: 'inaccuracy', class: 'judgement-inaccuracy' };
-    } else if (lostAdvantage <= 20) {
-        judgement = { text: 'mistake', class: 'judgement-mistake' };
-    } else {
-        judgement = { text: 'blunder', class: 'judgement-blunder' };
-    }
-    
-    return judgement;
-}
-
-// =============================
-// ==  Hotkeys  ================
-// =============================
+// ==========  Hotkeys  ==========
 
 document.addEventListener('keydown', function(event) {
     switch (event.key) {
+        // == Special keys ==
+
         // Navigate back
         case 'ArrowLeft':
         case 'Home':
             if (gameActive || reviewingGame) {
                 navigateBack();
             } else {
-                const catPrevious = document.getElementById('catPrevious');
-                const catNext = document.getElementById('catNext');
-                if (catPrevious === document.activeElement || catNext === document.activeElement) {
+
+                if (catPreviousBtn === document.activeElement || catNextBtn === document.activeElement) {
                     previousCategory();
-                    if (currentCategoryIndex === 0) {
-                        catNext.focus();   
-                    }
+                    if (currentCategoryIndex === 0) catNextBtn.focus();   
                 }
             }
             break;
@@ -2157,12 +2120,10 @@ document.addEventListener('keydown', function(event) {
             if (gameActive || reviewingGame) {
                 navigateForward();
             } else {
-                const catPrevious = document.getElementById('catPrevious');
-                const catNext = document.getElementById('catNext');
-                if (catPrevious === document.activeElement || catNext === document.activeElement) {
+                if (catPreviousBtn === document.activeElement || catNextBtn === document.activeElement) {
                     nextCategory();
                     if (currentCategoryIndex === difficultyCategories.length - 1) {
-                        catPrevious.focus();   
+                        catPreviousBtn.focus();   
                     }
                 }
             }
@@ -2179,24 +2140,22 @@ document.addEventListener('keydown', function(event) {
             }
             break;
 
-        // == Letter Keys (Alphabetical) ==
+        // == Letter keys (Alphabetical) ==
 
         // Play as Black
         case 'b':
         case 'B':
             if (!optionsModalStatus()) {
-                const blackBtn = document.querySelector('input[name="color"][value="black"]'); 
                 blackBtn.checked = true;
                 blackBtn.focus();
-                playSound('select');
 
             // Moving preference - click (Context: Options Modal)
             } else {
-                const bothMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="both"]');
+
                 if (optionsModalStatus()) {
                     setMovingPreference(true, true);
-                    bothMovingPreference.checked = true;
-                    bothMovingPreference.focus();
+                    bothMovingPreferenceRadioBtn.checked = true;
+                    bothMovingPreferenceRadioBtn.focus();
                 }
             }
             break;
@@ -2204,11 +2163,11 @@ document.addEventListener('keydown', function(event) {
         // Moving preference - click
         case 'c':
         case 'C':
-            const clickMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="click"]');
+
             if (optionsModalStatus()) {
                 setMovingPreference(true, false);
-                clickMovingPreference.checked = true;
-                clickMovingPreference.focus();
+                clickMovingPreferenceRadioBtn.checked = true;
+                clickMovingPreferenceRadioBtn.focus();
             }
             break;
 
@@ -2220,11 +2179,11 @@ document.addEventListener('keydown', function(event) {
 
             // Moving preference - drag (Context: Options Modal)
             } else {
-                const dragMovingPreference = document.querySelector('input[name="optionsModalMovingPreference"][value="drag"]');
+
                 if (optionsModalStatus()) {
                     setMovingPreference(false, true);
-                    dragMovingPreference.checked = true;
-                    dragMovingPreference.focus();
+                    dragMovingPreferenceRadioBtn.checked = true;
+                    dragMovingPreferenceRadioBtn.focus();
                 }
             }
             break;
@@ -2232,10 +2191,10 @@ document.addEventListener('keydown', function(event) {
         // Toggle on/off evaluation score bar
         case 'e':
         case 'E':
-            const optionsModalEvalBarCheckbox = document.getElementById('optionsModalEvalBarCheckbox');
+
             if (optionsModalStatus()) {
                 toggleEvalBar();
-                optionsModalEvalBarCheckbox.checked = evalBarEnabled;
+                toggleEvalBarCheckbox.checked = evalBarEnabled;
             }
             break;
 
@@ -2248,19 +2207,17 @@ document.addEventListener('keydown', function(event) {
         // Review the previous game
         case 'g':
         case 'G':
-            if (gameOverModalStatus()) {
-                reviewGame();
-            }
+            if (gameOverModalStatus()) reviewGame();
             break;
 
         // Highlights / Hint
         case 'h':
         case 'H':
             // Toggle highlighting
-            const optionsModalHighlightsCheckbox = document.getElementById('optionsModalHighlightsCheckbox');
+
             if (optionsModalStatus()) {
-                toggleHighlights();
-                optionsModalHighlightsCheckbox.checked = highlightsEnabled;
+                toggleLegalMoveHighlights();
+                toggleHighlightsCheckbox.checked = legalMoveHighlightsEnabled;
             }
             // Request a hint
             else {
@@ -2277,9 +2234,7 @@ document.addEventListener('keydown', function(event) {
         // Cancel resignation (No)
         case 'n':
         case 'N':
-            if (yesNoModalStatus()) {
-                cancelResignation();
-            }
+            if (yesNoModalStatus()) cancelResignation();
             break;
 
         // Open options modal
@@ -2296,9 +2251,7 @@ document.addEventListener('keydown', function(event) {
                 resignGame();
             // Rematch
             } else {
-                if (gameOverModalStatus()) {
-                    startNewGame();
-                }
+                if (gameOverModalStatus()) startNewGame();
             }
             break;
 
@@ -2317,18 +2270,17 @@ document.addEventListener('keydown', function(event) {
         // Play as White
         case 'w':
         case 'W':
-            const whiteBtn = document.querySelector('input[name="color"][value="white"]');
             whiteBtn.checked = true;
             whiteBtn.focus();
-            playSound('select');
             break;
 
         // Confirm resignation (Yes)
         case 'y':
         case 'Y':
-            if (yesNoModalStatus()) {
-                confirmResignation();
-            }
+            if (yesNoModalStatus()) confirmResignation();
             break;
     }
 });
+
+
+
