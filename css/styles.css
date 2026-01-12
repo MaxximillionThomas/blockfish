@@ -911,6 +911,76 @@ div[class^="board-"] {
     transform: translateX(-50%);
 }
 
+/* =============================
+// ==  Mobile / Tablet View  ===
+// ============================= */
+
+/* Trigger this only on screens smaller than 768px (Tablets & Phones) */
+@media screen and (max-width: 768px) {
+
+    /* 1. Stack things vertically instead of side-by-side */
+    .master-container {
+        /* Stack Game on top of Analysis */
+        flex-direction: column; 
+        gap: 10px;
+    }
+
+    /* 2. Shrink containers to fit the screen */
+    .menu-container, 
+    .game-container, 
+    .move-history-analysis-container,
+    .difficulty-container {
+        /* Fill the screen */
+        width: 100% !important;
+        /* Don't overflow */ 
+        max-width: 100%;  
+        /* Let height grow if needed */      
+        height: auto;           
+    }
+
+    /* 3. Adjust the board area */
+    .board {
+        /* Board shrinks to fit phone width */
+        width: 100% !important; 
+        /* Cap it so it doesn't look weird on tablets */
+        max-width: 350px;       
+    }
+
+    .eval-board-container {
+        /* Ensure the board and eval bar stay aligned */
+        justify-content: center;
+        width: 100%;
+    }
+
+    .eval-container {
+        /* Make the bar slightly smaller on mobile to save space */
+        height: 300px; 
+    }
+
+    /* 4. Tweak spacing for small screens */
+    .title-container {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .logo {
+        /* Smaller logo */
+        width: 100px; 
+    }
+
+    .title {
+        /* Smaller title */
+        font-size: 20px; 
+    }
+
+    /* 5. Make buttons touch-friendly */
+    .control-btn {
+        /* Larger hit area for fingers */
+        padding: 10px; 
+        font-size: 24px;
+    }
+}
+
 
 
 
