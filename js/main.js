@@ -2061,6 +2061,8 @@ startNewGameBtn.addEventListener('click', startNewGame);
 // Board gameplay
 $('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);
 $('#myBoard').on('click', '.square-55d63', onSquareClick);
+// Automatically resize the board when the window size changes
+window.addEventListener('resize', board.resize);
 
 // Board controls
 backBtn.addEventListener('click', navigateBack);
