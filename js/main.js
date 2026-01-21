@@ -897,8 +897,29 @@ hintEngine.onmessage = function(event) {
         // Handle game over (no best move) 
         if (bestMoveMessage === '(none)') {
             if (reviewingGame) {
+                // No hint applicable when there is no best move
                 hintHistory[analysisIndex] = null;
-                analysisIndex++;
+
+                // Manually determine judgement for the game-ending move
+                let history = game.history({ verbose: true });
+                let prevMoveIndex = analysisIndex - 1;
+                let prevMove = history[prevMoveIndex];
+                let prevEval = evalHistory[prevMoveIndex];
+                let currEval = evalHistory[analysisIndex];
+                
+                let judgement = determineMoveJudgement(prevMove, null, prevEval, currEval, prevMove.color);
+                let judgementType = judgement.text;
+
+                // Only count the judgement type (move summary) if the player made the move
+                if (prevMove.color === playerColor.charAt(0)) analysisCounts[judgementType]++;
+                moveJudgements.push({ index: analysisIndex, type: judgementType });
+
+                // Apply the judgement class
+                let dotClass = judgement.class.replace('judgement', 'dot');
+                let $moveSpan = $('.move-link[data-index="' + analysisIndex + '"]');
+                $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
+
+                // Move on to the next index (triggering the summary since the game is over)
                 triggerMoveAnalysis();
             }
             return;
@@ -974,7 +995,7 @@ hintEngine.onmessage = function(event) {
                 if (movePlayed.color === playerColor.charAt(0)) analysisCounts[type]++;
 
                 // Store the judgement for later use in filtering (HTML data-index is 1-based)
-                moveJudgements.push({ index: analysisIndex + 1, type: type });
+                moveJudgements.push({ index: analysisIndex, type: type });
 
                 // Apply the judgement to the dot class (ex 'judgement-best' -> 'dot-best')
                 let dotClass = judgement.class.replace('judgement', 'dot');
@@ -1122,6 +1143,8 @@ function analyzeGame() {
 
 // Process a move in the move history list
 function triggerMoveAnalysis() {
+    tempBestEval = 0;
+
     // == Loading bar ==
     // Track percentage of completion
     let moveCount = game.history().length;
@@ -1904,6 +1927,8 @@ function navigationUpdate() {
     // == Navigation == 
     // Disable/enable navigation buttons as necessary
     toggleNavigation();
+
+    console.log(viewingIndex, analysisIndex);
 }
 
 // =============================
