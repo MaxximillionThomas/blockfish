@@ -920,6 +920,7 @@ hintEngine.onmessage = function(event) {
                 $moveSpan.append('<span class="move-dot ' + dotClass + '"></span>');
 
                 // Move on to the next index (triggering the summary since the game is over)
+                analysisIndex++;
                 triggerMoveAnalysis();
             }
             return;
@@ -1160,7 +1161,7 @@ function triggerMoveAnalysis() {
 
     // == Summary ==
     // Stop once every move has been analyzed, then generate a summary
-    if (analysisIndex > game.history().length) {
+    if (analysisIndex >= game.history().length + 1) {
         let totalAccuracy = 0;
         let myMoveCount = 0;
 
@@ -1192,14 +1193,16 @@ function triggerMoveAnalysis() {
         sounds.loading.currentTime = 0;
 
         return;
+    
+    // ONLY process engine messages if the game is not over
+    } else {
+        // Retrieve the board state for the targeted turn
+        let fen = fenHistory[analysisIndex];
+
+        // Obtain the best move for the targeted turn
+        hintEngine.postMessage('position fen ' + fen);
+        hintEngine.postMessage('go depth ' + hintSearchDepth);
     }
-
-    // Retrieve the board state for the targeted turn
-    let fen = fenHistory[analysisIndex];
-
-    // Obtain the best move for the targeted turn
-    hintEngine.postMessage('position fen ' + fen);
-    hintEngine.postMessage('go depth ' + hintSearchDepth);
 }
 
 // Rander the clickable badges for the analysis summary
@@ -1264,6 +1267,17 @@ function applyMoveVisibility() {
 
 // Determine the quality of the move played based on evaluation score
 function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, currentEvaluation, turnColor) {
+    // Guard clause for final move of the game (null value)
+    if (bestMove === null) {
+        let judgement = '';
+        if (Math.abs(currentEvaluation) > 15000) {
+            judgement = { text: 'best', class: 'judgement-best' };
+        } else {
+            judgement = { text: 'good', class: 'judgement-good' };
+        }
+        return judgement;
+    }
+
     let judgement = {};
 
     // == The best move was played ==
@@ -1927,8 +1941,6 @@ function navigationUpdate() {
     // == Navigation == 
     // Disable/enable navigation buttons as necessary
     toggleNavigation();
-
-    console.log(viewingIndex, analysisIndex);
 }
 
 // =============================
