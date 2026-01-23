@@ -411,11 +411,17 @@ function onDragStart (source, piece) {
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
 
-    // Disable image inspection on long-press (mobile)
-    const images = document.querySelectorAll('#myBoard img');
-    images.forEach(img => {
-        img.oncontextmenu = function() { return false }; 
-    });
+    // Disable element inspection on long-press (mobile)
+    window.oncontextmenu = function (event) {
+        if (event.target.tagName === 'IMG' && event.target.className.includes('piece-')) {
+            event.preventDefault();
+            return false;
+        }
+    };
+    document.getElementById('myBoard').oncontextmenu = function(event) {
+        event.preventDefault();
+        return false;
+    } 
 
     // Prevent moving pieces when viewing previous positions
     if (viewingIndex < fenHistory.length - 1) return false;
@@ -445,6 +451,21 @@ function onDrop (source, target) {
     // Enable page scrolling
     document.body.style.overflow = '';
     document.body.style.touchAction = '';
+
+    // Clear text selections that were created during long-press (mobile)
+    window.oncontextmenu = null;
+    if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+    } else if (document.selection) {
+        document.selection.empty();
+    }
+
+    // Delay restoration of scrolling and context menus 
+    setTimeout(() => {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+        document.getElementById('myBoard').oncontextmenu = null;
+    }, 150);
 
     // Classify the move as a 'click' if the piece is dragged and dropped to the same square
     if (source === target) {

@@ -856,9 +856,10 @@ body > img[class^="piece-"] {
 /* Prevent the browser from handling touch actions on the board */
 #myBoard {
     touch-action: none;
+    user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    -webkit-touch-callout: none !important;
 }
 
 /* Allow pieces to hang off the edge of the board */
@@ -875,12 +876,32 @@ div[class^="board-"] {
     margin: 4px auto;
 
     /* Mobile: long-press handling */
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-user-drag: none;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -webkit-user-drag: none !important;
+    outline: none !important;
     pointer-events: auto;
 }
+
+/* Prevent inspection of ghost pieces - only present while dragging */
+img[class^="piece-"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    outline: none !important;
+}
+
+/* Prevent blue inspection cursor */
+#myBoard, 
+.game-container,
+.master-container {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+}
+
 
 /* =============================
 // ==  Tooltips  ===============
