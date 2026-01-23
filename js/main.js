@@ -1900,10 +1900,25 @@ function navigationUpdate() {
             // Find the specific html element for the current move
             let $currentmove = $('.move-link[data-index="' + viewingIndex + '"]');
             if ($currentmove.length > 0) {
-                // Style the element 
+                // == Style the element == 
                 $currentmove.addClass('current-move');
-                // Auto-scroll to the element
-                $currentmove[0].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                // == Auto-scroll to the element == 
+                // Identify the container (The div with id="pgn")
+                let $container = $('#pgn');
+
+                // Ensure both elements exist before attempting math
+                if ($container.length && $currentmove.length) {
+                    
+                    // Calculate the exact position to center the active move
+                    // Formula: Element's offset - Container's offset + Current Scroll - Half Container Height
+                    let targetScrollTop = $currentmove.offset().top - $container.offset().top + $container.scrollTop() - ($container.height() / 2) + ($currentmove.height() / 2);
+
+                    // Animate the container's internal scroll only
+                    // .stop() prevents animation queue buildup if the user clicks quickly
+                    $container.stop().animate({
+                        scrollTop: targetScrollTop
+                    }, 200); 
+                }
             }
         }
     }
