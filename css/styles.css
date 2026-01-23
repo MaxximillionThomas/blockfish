@@ -356,7 +356,7 @@ body {
 .analysis-pane {
     padding: 10px;
     border-bottom: 2px solid gray;
-    min-height: 220px; 
+    min-height: 240px; 
     display: block;
 }
 
@@ -851,6 +851,13 @@ body > img[class^="piece-"] {
 .square-55d63.highlight-source img {
     animation: none !important; 
     transform: none !important; 
+}
+
+/* Prevent the browser from handling touch actions on the board */
+#myBoard {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Allow pieces to hang off the edge of the board */

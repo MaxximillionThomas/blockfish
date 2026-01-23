@@ -407,6 +407,10 @@ function onDragStart (source, piece) {
     // No game in progress
     if (!gameActive) return false;
 
+    // Prevent page scrolling
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
     // Prevent moving pieces when viewing previous positions
     if (viewingIndex < fenHistory.length - 1) return false;
 
@@ -432,6 +436,10 @@ function onDragStart (source, piece) {
 
 // Allow piece drop interactions between chess pieces and squares
 function onDrop (source, target) {
+    // Enable page scrolling
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
     // Classify the move as a 'click' if the piece is dragged and dropped to the same square
     if (source === target) {
         handleSquareClickInteractions(source);
