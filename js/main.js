@@ -411,6 +411,12 @@ function onDragStart (source, piece) {
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
 
+    // Disable image inspection on long-press (mobile)
+    const images = document.querySelectorAll('#myBoard img');
+    images.forEach(img => {
+        img.oncontextmenu = function() { return false }; 
+    });
+
     // Prevent moving pieces when viewing previous positions
     if (viewingIndex < fenHistory.length - 1) return false;
 
@@ -437,8 +443,8 @@ function onDragStart (source, piece) {
 // Allow piece drop interactions between chess pieces and squares
 function onDrop (source, target) {
     // Enable page scrolling
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
 
     // Classify the move as a 'click' if the piece is dragged and dropped to the same square
     if (source === target) {

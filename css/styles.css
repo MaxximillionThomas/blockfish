@@ -857,6 +857,7 @@ body > img[class^="piece-"] {
 #myBoard {
     touch-action: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
     user-select: none;
 }
 
@@ -868,9 +869,17 @@ div[class^="board-"] {
 
 /* Base pieces */
 #myBoard img[class^="piece-"] {
+    /* Visual styling */
     width: 90% !important;
     height: 90% !important;
     margin: 4px auto;
+
+    /* Mobile: long-press handling */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: auto;
 }
 
 /* =============================
