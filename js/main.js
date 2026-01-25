@@ -968,32 +968,40 @@ hintEngine.onmessage = function(event) {
 
         // A: Reviewing game
         if (reviewingGame) {
-            // == Evaluation score == 
-            // Store the best move into the history array
-            if (analysisIndex > 0) {
+            // == Evaluation score and hint storage == 
+            if (analysisIndex === 0) {
+                // No previous state of advantage
+                evalHistory[0] = 0;
+                if (viewingIndex === 0) updateEvalBar(0);
+                // Show the best opening
+                hintHistory[0] = { from: source, to: target };
+            } else {
+                // Store the best move into the history array
                 let bestMoveObject = { from: source, to: target };
                 hintHistory[analysisIndex] = bestMoveObject;
-            } else {
-                hintHistory[analysisIndex] = null;
-            }
 
-            // Get the best move's evaluation score
-            let bestEvalWhitePerspective = tempBestEval;
-            let currentFen = fenHistory[analysisIndex];
-            let turnColor = currentFen.split(' ')[1];
-            if (turnColor === 'b') bestEvalWhitePerspective = -tempBestEval;
+                // Get the best move's evaluation score
+                let bestEvalWhitePerspective = tempBestEval;
+                let currentFen = fenHistory[analysisIndex];
+                let turnColor = currentFen.split(' ')[1];
+                if (turnColor === 'b') bestEvalWhitePerspective = -tempBestEval;
 
-            /*
-            Re-evaluate the CURRENT move
-                Overwrite the lower engine depth score evaluation with the higher depth outlook
-                botEngine calculates eval score with a variable search depth (lower elo < 2000), hintEngine uses a fixed high depth
-            */
-            if (analysisIndex > 0) {
+                /*
+                Re-evaluate the CURRENT move
+                    Overwrite the lower engine depth score evaluation with the higher depth outlook
+                    botEngine calculates eval score with a variable search depth (lower elo < 2000), hintEngine uses a fixed high depth
+                */
                 evalHistory[analysisIndex] = bestEvalWhitePerspective;
-
-                // Update the eval score with the recalculated figure
                 if (analysisIndex === viewingIndex) updateEvalBar(bestEvalWhitePerspective);
+                
+
+
             }
+
+
+
+
+
 
             // Re-evaluate the PREVIOUS move
             if (analysisIndex > 0) {
@@ -1019,9 +1027,15 @@ hintEngine.onmessage = function(event) {
                     playedWinChance = 100 - playedWinChance;
                 }
 
-                // Calculate the accuracy of winning chance captured relative to the best move
-                // (E.g. best move = 50% win chance, played move = 40% win chance -> 100 - (50 - 40) = 90% accuracy)
-                let accuracy = 100 - (bestWinChance - playedWinChance);
+                /*
+                Calculate the accuracy of winning chance captured relative to the best move
+                Uses exponential scaling, meaning:    
+                    Small errors (1-2%) have minimal impact
+                    Large errors (10%+) have a *significantly* larger impact
+                */
+                let winDifference = (bestWinChance - playedWinChance) / 100;
+                let accuracy = 100 * Math.pow(1 - winDifference, 10);
+
                 // The engine can sometimes rate moves above best move
                 if (accuracy > 100) accuracy = 100;
 
@@ -1237,16 +1251,8 @@ function triggerMoveAnalysis() {
     
     // ONLY process engine messages if the game is not over
     } else {
-        // Skip analysis for the starting position
-        if (analysisIndex === 0) {
-            hintHistory[0] = null;
-            evalHistory[0] = 0;
-
-            // Move onto the next index
-            analysisIndex++;
-            triggerMoveAnalysis();
-            return;
-        }
+        // Skip evaluation for the starting position
+        if (analysisIndex === 0) evalHistory[0] = 0;
 
         // Retrieve the board state for the targeted turn
         let fen = fenHistory[analysisIndex];
@@ -1394,11 +1400,11 @@ function determineMoveJudgement(movePlayed, bestMove, previousEvaluation, curren
     }
 
     // Categorize the loss of advantage to determine move judgement
-    if (lostAdvantage <= 2) {
+    if (lostAdvantage <= 1.5) {
         judgement = { text: 'excellent', class: 'judgement-excellent' };
-    } else if (lostAdvantage <= 5) {
+    } else if (lostAdvantage <= 3) {
         judgement = { text: 'good', class: 'judgement-good' };
-    } else if (lostAdvantage <= 10) {
+    } else if (lostAdvantage <= 6) {
         judgement = { text: 'inaccuracy', class: 'judgement-inaccuracy' };
     } else if (lostAdvantage <= 20) {
         judgement = { text: 'mistake', class: 'judgement-mistake' };
@@ -1991,10 +1997,10 @@ function navigationUpdate() {
         let moveIndex = viewingIndex - 1;
 
         // Display the best move & judgement only if the analysis has finished loading
-        if (hintHistory[moveIndex]) {
+        if (hintHistory[moveIndex] !== undefined) {
             // Best move
             let hint = hintHistory[moveIndex];
-            highlightHint(hint.from, hint.to);
+            if (hint && hint.from && hint.to) highlightHint(hint.from, hint.to);
 
             // Judgement
             let prevEval = evalHistory[moveIndex];
@@ -2021,12 +2027,13 @@ Calculate the game evaluation (who is winning)
     Evaluation is always relative to Whites position 
 */
 function calculateEvaluation(centipawnAdvantage) {
-    // 0.004 is the commonly used sensitivity factor for game evaluation in chess programs
-    let sensitivityFactor = 0.004;
+    // At 400 centipawns (+4.00 pawns), modern chess programs treat the winning chance as 100%. 300 is more strict.
+    let centipawnsForWin = 300;
+
     // Calculate the chance of winning based on the centipawn advantage
-    let winChance = 1 / (1 + Math.pow(10, -sensitivityFactor * centipawnAdvantage))
-    // Return the chance of White winning as a percentage
-    return winChance * 100;
+    let winChance = 100 / (1 + Math.pow(10, -centipawnAdvantage / centipawnsForWin))
+
+    return winChance;
 }   
 
 // Retrieve the details of the previously played move
