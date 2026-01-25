@@ -407,9 +407,11 @@ function onDragStart (source, piece) {
     // No game in progress
     if (!gameActive) return false;
 
-    // Prevent page scrolling
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+    // Prevent page scrolling (mobile)
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+    }
 
     // Disable element inspection on long-press (mobile)
     window.oncontextmenu = function (event) {
@@ -1456,6 +1458,7 @@ const whiteBtn = document.querySelector('input[name="color"][value="white"]');
 const undoBtn = document.getElementById('undoBtn');
 const hintBtn = document.getElementById('hintBtn');
 const resignBtn = document.getElementById('resignBtn');
+const gameContainer = document.getElementById('gameContainer');
 
 // ==========  Starting settings  ==========
 
@@ -2152,6 +2155,14 @@ function playHistoricalMoveSound() {
     playSound('move');
 }
 
+// Restore page mobility after piece-drag lockup
+function restorePageMobility(event) {
+    if (event.target.id === 'gameContainer' || event.target.id === 'moveHistoryAnalysisContainer') {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+    }
+}
+
 // =============================
 // ==  Events  =================
 // =============================
@@ -2168,6 +2179,9 @@ colorRadios.forEach(function(radio) {
     });
 });
 startNewGameBtn.addEventListener('click', startNewGame);
+
+// Game container
+gameContainer.addEventListener('touchstart', restorePageMobility, { passive: true });
 
 // Board gameplay
 $('#myBoard').on('mouseenter', '.square-55d63 img', playHoverSound);

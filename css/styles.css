@@ -61,6 +61,7 @@ body {
 .subtitle {
     font-size: 16px;
     margin-bottom: 30px;
+    text-align: center;
     /* 3D block shadow (cracked stone effect) */
     text-shadow: 
         1px 1px 0px #383838, /* Dark gray shadow side */
@@ -980,6 +981,29 @@ img[class^="piece-"] {
         height: auto;           
     }
 
+    .menu-container {
+        margin-top: -10px !important;
+    }
+
+    .difficulty-container {
+        margin-bottom: 10px !important;
+    }
+
+    #difficultyText,
+    .category-selector {
+        margin-bottom: -20px !important;
+    }
+
+    /* --- Menu --- */
+    .menu-container,
+    .difficulty-container,
+    .elo-selector {     
+        justify-content: center !important;
+        text-align: center;
+        align-items: center;
+    }
+
+
     /* --- Game board --- */
     .board {
         width: 85vw !important; 
@@ -999,6 +1023,7 @@ img[class^="piece-"] {
         margin-right: 5px; 
         margin-left: 5px;
     }
+
 
     /* --- Text sizing --- */
     .title-container { margin: 10px 0; }
