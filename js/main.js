@@ -970,8 +970,12 @@ hintEngine.onmessage = function(event) {
         if (reviewingGame) {
             // == Evaluation score == 
             // Store the best move into the history array
-            let bestMoveObject = { from: source, to: target };
-            hintHistory[analysisIndex] = bestMoveObject;
+            if (analysisIndex > 0) {
+                let bestMoveObject = { from: source, to: target };
+                hintHistory[analysisIndex] = bestMoveObject;
+            } else {
+                hintHistory[analysisIndex] = null;
+            }
 
             // Get the best move's evaluation score
             let bestEvalWhitePerspective = tempBestEval;
@@ -984,10 +988,12 @@ hintEngine.onmessage = function(event) {
                 Overwrite the lower engine depth score evaluation with the higher depth outlook
                 botEngine calculates eval score with a variable search depth (lower elo < 2000), hintEngine uses a fixed high depth
             */
-            evalHistory[analysisIndex] = bestEvalWhitePerspective;
+            if (analysisIndex > 0) {
+                evalHistory[analysisIndex] = bestEvalWhitePerspective;
 
-            // Update the eval score with the recalculated figure
-            if (analysisIndex === viewingIndex) updateEvalBar(bestEvalWhitePerspective);
+                // Update the eval score with the recalculated figure
+                if (analysisIndex === viewingIndex) updateEvalBar(bestEvalWhitePerspective);
+            }
 
             // Re-evaluate the PREVIOUS move
             if (analysisIndex > 0) {
@@ -1231,6 +1237,17 @@ function triggerMoveAnalysis() {
     
     // ONLY process engine messages if the game is not over
     } else {
+        // Skip analysis for the starting position
+        if (analysisIndex === 0) {
+            hintHistory[0] = null;
+            evalHistory[0] = 0;
+
+            // Move onto the next index
+            analysisIndex++;
+            triggerMoveAnalysis();
+            return;
+        }
+
         // Retrieve the board state for the targeted turn
         let fen = fenHistory[analysisIndex];
 
